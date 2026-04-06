@@ -1070,7 +1070,7 @@ function recalc() {
     const maxBuyCostEach = qty > 0 ? maxBuyCostTotal / qty : 0;
     const maxBuyCostTotalClamped = Math.max(0, maxBuyCostTotal);
 
-    // Total Sell = net revenue (after deductions)
+    // Total Sell = qty × sale price (gross, before any deductions)
     const sellCell = document.getElementById(`totalsell-${item.id}`);
     if (sellCell) {
       if (item.salePrice <= 0 || qty <= 0) {
@@ -1078,7 +1078,7 @@ function recalc() {
         sellCell.innerHTML = '<span>—</span><span class="calc-tag">auto</span>';
       } else {
         sellCell.className = 'calc-cell';
-        sellCell.innerHTML = `<span style="color:var(--blue)">${fmt(netRevenue)}</span><span class="calc-tag">auto</span>`;
+        sellCell.innerHTML = `<span style="color:var(--blue)">${fmt(grossRevenue)}</span><span class="calc-tag">auto</span>`;
       }
     }
 
@@ -1160,7 +1160,7 @@ function renderResults(d) {
   if (foot) {
     foot.style.display = '';
     document.getElementById('footQty').textContent = d.totalUnits + ' units';
-    document.getElementById('footRevenue').textContent = fmt(d.totalNetRevenue);
+    document.getElementById('footRevenue').textContent = fmt(d.totalRevenue);
     document.getElementById('footMaxBuy').textContent = fmt(d.totalBuyCost);
   }
 
