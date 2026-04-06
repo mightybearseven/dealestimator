@@ -1106,10 +1106,11 @@ function recalc() {
   const shippingCost   = getNum('shippingCost');
   const platformFee    = getNum('platformFee') / 100;
 
-  // Grade deduction rates from config panel (% of sell price)
-  const deductRateC = getNum('deductC') / 100;
-  const deductRateD = getNum('deductD') / 100;
-  const deductRateF = getNum('deductF') / 100;
+  // Grade deduction rates from config panel (% of sell price per grade)
+  const deductRateAB = getNum('deductAB') / 100;
+  const deductRateC  = getNum('deductC')  / 100;
+  const deductRateD  = getNum('deductD')  / 100;
+  const deductRateF  = getNum('deductF')  / 100;
 
   // Total units for splitting shipping cost
   const totalUnits = items.reduce((s, i) => s + Math.max(0, i.qty || 0), 0);
@@ -1122,52 +1123,71 @@ function recalc() {
 
   const itemResults = items.map(item => {
     const qty          = Math.max(0, item.qty || 0);
-    const grossRevenue = item.salePrice * qty;
+    const salePrice    = item.salePrice || 0;
+    const grossRevenue = salePrice * qty;
 
-    // Grade mix percentages for this line — capped at 100% total, remainder is A/B (0% deduction)
+    // Grade mix % for this line — scale down proportionally if total > 100%
     const gradeABPct = Math.min(100, Math.max(0, item.gradeAB || 0)) / 100;
     const gradeCPct  = Math.min(100, Math.max(0, item.gradeC  || 0)) / 100;
     const gradeDPct  = Math.min(100, Math.max(0, item.gradeD  || 0)) / 100;
     const gradeFPct  = Math.min(100, Math.max(0, item.gradeF  || 0)) / 100;
     const gradeTotal = gradeABPct + gradeCPct + gradeDPct + gradeFPct;
-    const gradeScale = gradeTotal > 1 ? 1 / gradeTotal : 1; // scale down if over 100%
+    const scale      = gradeTotal > 1 ? 1 / gradeTotal : 1;
 
-    // Grade deduction reduces max buy: portion of line × configured deduction rate × gross revenue
-    const gradeDeductAmt = grossRevenue * (
-      (gradeCPct * gradeScale) * deductRateC +
-      (gradeDPct * gradeScale) * deductRateD +
-      (gradeFPct * gradeScale) * deductRateF
+    const abPct = gradeABPct * scale;
+    const cPct  = gradeCPct  * scale;
+    const dPct  = gradeDPct  * scale;
+    const fPct  = gradeFPct  * scale;
+    // remainder (unspecified units) treated as A/B
+    const remainderPct = Math.max(0, 1 - (abPct + cPct + dPct + fPct));
+    const effectiveABPct = abPct + remainderPct;
+
+    // Effective net sell per unit for each grade portion
+    // Max buy per unit = salePrice × (1 - deductRate) × (1 - targetMargin)
+    const maxBuyPerUnitAB = salePrice * (1 - deductRateAB) * (1 - targetMargin);
+    const maxBuyPerUnitC  = salePrice * (1 - deductRateC)  * (1 - targetMargin);
+    const maxBuyPerUnitD  = salePrice * (1 - deductRateD)  * (1 - targetMargin);
+    const maxBuyPerUnitF  = salePrice * (1 - deductRateF)  * (1 - targetMargin);
+
+    // Blended max buy per unit across all grade portions
+    const maxBuyCostEach = (
+      effectiveABPct * maxBuyPerUnitAB +
+      cPct           * maxBuyPerUnitC  +
+      dPct           * maxBuyPerUnitD  +
+      fPct           * maxBuyPerUnitF
     );
 
-    const netRevenue = grossRevenue; // sell price unaffected
-
-    // Max Buy: net revenue × (1 − margin) − grade deductions
-    const maxBuyCostTotal = netRevenue * (1 - targetMargin) - gradeDeductAmt;
-    const maxBuyCostEach = qty > 0 ? maxBuyCostTotal / qty : 0;
+    const maxBuyCostTotal        = maxBuyCostEach * qty;
     const maxBuyCostTotalClamped = Math.max(0, maxBuyCostTotal);
 
-    // Total Sell = net revenue (after deductions)
+    // Grade deduction = what we're giving up vs full A/B price
+    const fullMaxBuy     = salePrice * (1 - deductRateAB) * (1 - targetMargin) * qty;
+    const gradeDeductAmt = Math.max(0, fullMaxBuy - maxBuyCostTotalClamped);
+
+    const netRevenue = grossRevenue; // sell price shown is always gross
+
+    // Total Sell = gross revenue
     const sellCell = document.getElementById(`totalsell-${item.id}`);
     if (sellCell) {
-      if (item.salePrice <= 0 || qty <= 0) {
+      if (salePrice <= 0 || qty <= 0) {
         sellCell.className = 'calc-cell zero';
         sellCell.innerHTML = '<span>—</span><span class="calc-tag">auto</span>';
       } else {
         sellCell.className = 'calc-cell';
         sellCell.style.cssText = '';
-        sellCell.innerHTML = `<span style="color:var(--blue);font-weight:700;">${fmt(netRevenue)}</span><span class="calc-tag">auto</span>`;
+        sellCell.innerHTML = `<span style="color:var(--blue);font-weight:700;">${fmt(grossRevenue)}</span><span class="calc-tag">auto</span>`;
       }
     }
 
-    // Update Max Buy (ea) cell
+    // Update Max Buy (ea) cell — shows blended per-unit max buy across grade mix
     const cell = document.getElementById(`maxbuy-${item.id}`);
     if (cell) {
-      if (item.salePrice <= 0) {
+      if (salePrice <= 0) {
         cell.className = 'calc-cell zero';
         cell.innerHTML = '<span>—</span><span class="calc-tag">auto</span>';
       } else if (maxBuyCostEach <= 0) {
         cell.className = 'calc-cell zero';
-        cell.innerHTML = `<span style="color:var(--danger)">$0.00</span><span class="calc-tag">auto</span>`;
+        cell.innerHTML = `<span style="color:var(--danger)">$0</span><span class="calc-tag">auto</span>`;
       } else {
         cell.className = 'calc-cell';
         cell.innerHTML = `<span>${fmt(maxBuyCostEach)}</span><span class="calc-tag">auto</span>`;
@@ -1177,12 +1197,12 @@ function recalc() {
     // Update Total Buy cell
     const buyCell = document.getElementById(`totalbuy-${item.id}`);
     if (buyCell) {
-      if (item.salePrice <= 0 || qty <= 0) {
+      if (salePrice <= 0 || qty <= 0) {
         buyCell.className = 'calc-cell zero';
         buyCell.innerHTML = '<span>—</span><span class="calc-tag">auto</span>';
       } else if (maxBuyCostTotalClamped <= 0) {
         buyCell.className = 'calc-cell zero';
-        buyCell.innerHTML = `<span style="color:var(--danger)">$0.00</span><span class="calc-tag">auto</span>`;
+        buyCell.innerHTML = `<span style="color:var(--danger)">$0</span><span class="calc-tag">auto</span>`;
       } else {
         buyCell.className = 'calc-cell';
         buyCell.innerHTML = `<span>${fmt(maxBuyCostTotalClamped)}</span><span class="calc-tag">auto</span>`;
@@ -1196,7 +1216,7 @@ function recalc() {
     totalProcessing   += processingCost * qty;
     totalPlatformFee  += netRevenue * platformFee;
 
-    return { item, qty, grossRevenue, netRevenue, gradeDeductAmt, gradeABPct, gradeCPct, gradeDPct, gradeFPct, buyCostTotal: maxBuyCostTotalClamped, maxBuyCostEach };
+    return { item, qty, grossRevenue, netRevenue, gradeDeductAmt, gradeABPct: effectiveABPct, gradeCPct: cPct, gradeDPct: dPct, gradeFPct: fPct, buyCostTotal: maxBuyCostTotalClamped, maxBuyCostEach };
   });
 
   const totalGrossRevenue = totalRevenue;
@@ -1238,7 +1258,7 @@ function renderResults(d) {
   const footRevenue = document.getElementById('footRevenue');
   const footMaxBuy  = document.getElementById('footMaxBuy');
   if (footQty)     footQty.textContent     = d.totalUnits + ' units';
-  if (footRevenue) footRevenue.textContent = fmt(d.totalNetRevenue);
+  if (footRevenue) footRevenue.textContent = fmt(d.totalRevenue);
   if (footMaxBuy)  footMaxBuy.textContent  = fmt(d.totalBuyCost);
 
   // Net Profit block
