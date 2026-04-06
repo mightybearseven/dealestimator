@@ -166,7 +166,19 @@
   .tbl-input.w100 { width: 100px; }
   .tbl-input.w120 { width: 120px; }
 
-  select.tbl-input { cursor: pointer; }
+  .items-table th.drag-over-col {
+    background: var(--accent-dim);
+    border-bottom: 2px solid var(--accent);
+    color: var(--accent);
+  }
+  .items-table th[draggable="true"] {
+    user-select: none;
+  }
+  .items-table th[draggable="true"]::after {
+    content: ' ⠿';
+    font-size: 9px;
+    opacity: 0.3;
+  }
 
   .calc-cell {
     background: rgba(0,165,114,0.08);
@@ -594,37 +606,10 @@
     <!-- ITEMS -->
     <div class="items-section">
       <div class="section-label">Line Items</div>
-      <table class="items-table">
-        <thead>
-          <tr>
-            <th style="width:180px">Part Number</th>
-            <th style="width:60px">Qty</th>
-            <th style="width:110px">Sale Price (ea)</th>
-            <th style="width:120px">Total Sell ↗</th>
-            <th style="width:120px">Max Buy (ea) ↗</th>
-            <th style="width:120px">Total Buy ↗</th>
-            <th style="width:90px">Grade</th>
-            <th style="width:36px"></th>
-          </tr>
-        </thead>
+      <table class="items-table" id="itemsTable">
+        <thead id="itemsHead"><tr></tr></thead>
         <tbody id="itemsBody"></tbody>
-        <tfoot id="itemsFoot" style="display:none;">
-          <tr style="border-top:2px solid var(--border2); background:var(--surface2);">
-            <td style="padding:7px 10px; font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted);">Totals</td>
-            <td style="padding:7px 6px;"><span id="footQty" style="font-family:var(--mono); font-size:13px; font-weight:700; color:var(--text);"></span></td>
-            <td></td>
-            <td style="padding:7px 6px;">
-              <span style="font-family:var(--mono); font-size:9px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); display:block;">Total Sell</span>
-              <span id="footRevenue" style="font-family:var(--mono); font-size:12px; font-weight:700; color:var(--blue);"></span>
-            </td>
-            <td></td>
-            <td style="padding:7px 6px;">
-              <span style="font-family:var(--mono); font-size:9px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); display:block;">Total Buy</span>
-              <span id="footMaxBuy" style="font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent);"></span>
-            </td>
-            <td colspan="2"></td>
-          </tr>
-        </tfoot>
+        <tfoot id="itemsFoot" style="display:none;"><tr></tr></tfoot>
       </table>
       <button class="add-item-btn" onclick="addItem()">+ Add Line Item</button>
       <div id="pasteZone" class="paste-zone" 
@@ -903,6 +888,7 @@ function handlePaste(raw) {
   });
 
   if (added > 0) {
+    renderHeader();
     renderItems();
     recalc();
     showToast(`✓ ${added} row${added !== 1 ? 's' : ''} imported${skipped ? ` (${skipped} skipped)` : ''}`);
@@ -925,12 +911,14 @@ function showToast(msg, isErr) {
 function addItem() {
   const id = nextId++;
   items.push({ id, pn: '', qty: 1, buyCost: 0, salePrice: 0, grade: 'AB', missing: [] });
+  renderHeader();
   renderItems();
   recalc();
 }
 
 function removeItem(id) {
   items = items.filter(i => i.id !== id);
+  renderHeader();
   renderItems();
   recalc();
 }
@@ -948,29 +936,111 @@ function updateItem(id, field, value) {
   recalc();
 }
 
+// ── Column order ───────────────────────────────────────────────────────────
+const COLUMNS = [
+  { id: 'pn',        label: 'Part Number',    width: '170px', draggable: true },
+  { id: 'qty',       label: 'Qty',            width: '60px',  draggable: true },
+  { id: 'salePrice', label: 'Sale Price (ea)',width: '110px', draggable: true },
+  { id: 'totalsell', label: 'Total Sell ↗',  width: '110px', draggable: true },
+  { id: 'maxbuy',    label: 'Max Buy (ea) ↗',width: '115px', draggable: true },
+  { id: 'totalbuy',  label: 'Total Buy ↗',   width: '110px', draggable: true },
+  { id: 'grade',     label: 'Grade',          width: '85px',  draggable: true },
+  { id: '_del',      label: '',               width: '36px',  draggable: false },
+];
+let columnOrder = COLUMNS.map(c => c.id);
+let dragSrcCol = null;
+
+function renderHeader() {
+  const tr = document.querySelector('#itemsHead tr');
+  tr.innerHTML = '';
+  columnOrder.forEach(colId => {
+    const col = COLUMNS.find(c => c.id === colId);
+    const th = document.createElement('th');
+    th.style.width = col.width;
+    th.textContent = col.label;
+    if (col.draggable) {
+      th.draggable = true;
+      th.dataset.col = colId;
+      th.style.cursor = 'grab';
+      th.title = 'Drag to reorder';
+      th.addEventListener('dragstart', e => {
+        dragSrcCol = colId;
+        th.style.opacity = '0.4';
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      th.addEventListener('dragend', () => { th.style.opacity = ''; document.querySelectorAll('#itemsHead th').forEach(h => h.classList.remove('drag-over-col')); });
+      th.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; document.querySelectorAll('#itemsHead th').forEach(h => h.classList.remove('drag-over-col')); th.classList.add('drag-over-col'); });
+      th.addEventListener('dragleave', () => th.classList.remove('drag-over-col'));
+      th.addEventListener('drop', e => {
+        e.preventDefault();
+        th.classList.remove('drag-over-col');
+        if (!dragSrcCol || dragSrcCol === colId) return;
+        const from = columnOrder.indexOf(dragSrcCol);
+        const to   = columnOrder.indexOf(colId);
+        columnOrder.splice(from, 1);
+        columnOrder.splice(to, 0, dragSrcCol);
+        renderHeader();
+        renderItems();
+        recalc();
+      });
+    }
+    tr.appendChild(th);
+  });
+}
+
+function renderFooter(show) {
+  const foot = document.getElementById('itemsFoot');
+  const tr = foot.querySelector('tr');
+  foot.style.display = show ? '' : 'none';
+  if (!show) return;
+  tr.style.borderTop = '2px solid var(--border2)';
+  tr.style.background = 'var(--surface2)';
+  tr.innerHTML = '';
+  columnOrder.forEach(colId => {
+    const td = document.createElement('td');
+    td.style.padding = '7px 6px';
+    if (colId === 'pn') {
+      td.style.fontFamily = 'var(--mono)'; td.style.fontSize = '10px'; td.style.fontWeight = '600';
+      td.style.letterSpacing = '0.1em'; td.style.textTransform = 'uppercase'; td.style.color = 'var(--text-muted)';
+      td.textContent = 'Totals';
+    } else if (colId === 'qty') {
+      td.innerHTML = `<span id="footQty" style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);"></span>`;
+    } else if (colId === 'totalsell') {
+      td.innerHTML = `<span style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);display:block;">Total Sell</span><span id="footRevenue" style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--blue);"></span>`;
+    } else if (colId === 'totalbuy') {
+      td.innerHTML = `<span style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);display:block;">Total Buy</span><span id="footMaxBuy" style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);"></span>`;
+    }
+    tr.appendChild(td);
+  });
+}
+
 function renderItems() {
   const tbody = document.getElementById('itemsBody');
   tbody.innerHTML = '';
   items.forEach(item => {
     const tr = document.createElement('tr');
     tr.className = 'item-row';
-    tr.innerHTML = `
-      <td><input class="tbl-input w120" type="text" placeholder="e.g. 3KXY8AV" value="${item.pn}"
-        oninput="updateItem(${item.id},'pn',this.value)"></td>
-      <td><input class="tbl-input w80" type="number" value="${item.qty}" min="1" step="1"
-        oninput="updateItem(${item.id},'qty',parseFloat(this.value)||0)"></td>
-      <td><input class="tbl-input w100" type="number" value="${item.salePrice}" min="0" step="0.01" placeholder="0.00"
-        oninput="updateItem(${item.id},'salePrice',parseFloat(this.value)||0)"></td>
-      <td><div class="calc-cell zero" id="totalsell-${item.id}"><span>—</span><span class="calc-tag">auto</span></div></td>
-      <td><div class="calc-cell zero" id="maxbuy-${item.id}"><span>—</span><span class="calc-tag">auto</span></div></td>
-      <td><div class="calc-cell zero" id="totalbuy-${item.id}"><span>—</span><span class="calc-tag">auto</span></div></td>
-      <td>
-        <select class="tbl-input" onchange="updateItem(${item.id},'grade',this.value)">
-          ${['AB','C','D','F'].map(g => `<option value="${g}" ${item.grade===g?'selected':''}>${g === 'AB' ? 'A/B' : g}</option>`).join('')}
-        </select>
-      </td>
-      <td><button class="del-btn" onclick="removeItem(${item.id})">×</button></td>
-    `;
+    columnOrder.forEach(colId => {
+      const td = document.createElement('td');
+      if (colId === 'pn') {
+        td.innerHTML = `<input class="tbl-input w120" type="text" placeholder="e.g. 3KXY8AV" value="${item.pn}" oninput="updateItem(${item.id},'pn',this.value)">`;
+      } else if (colId === 'qty') {
+        td.innerHTML = `<input class="tbl-input w80" type="number" value="${item.qty}" min="0" step="1" oninput="updateItem(${item.id},'qty',parseFloat(this.value)||0)">`;
+      } else if (colId === 'salePrice') {
+        td.innerHTML = `<input class="tbl-input w100" type="number" value="${item.salePrice}" min="0" step="0.01" placeholder="0.00" oninput="updateItem(${item.id},'salePrice',parseFloat(this.value)||0)">`;
+      } else if (colId === 'totalsell') {
+        td.innerHTML = `<div class="calc-cell zero" id="totalsell-${item.id}"><span>—</span><span class="calc-tag">auto</span></div>`;
+      } else if (colId === 'maxbuy') {
+        td.innerHTML = `<div class="calc-cell zero" id="maxbuy-${item.id}"><span>—</span><span class="calc-tag">auto</span></div>`;
+      } else if (colId === 'totalbuy') {
+        td.innerHTML = `<div class="calc-cell zero" id="totalbuy-${item.id}"><span>—</span><span class="calc-tag">auto</span></div>`;
+      } else if (colId === 'grade') {
+        td.innerHTML = `<select class="tbl-input" onchange="updateItem(${item.id},'grade',this.value)">${['AB','C','D','F'].map(g=>`<option value="${g}" ${item.grade===g?'selected':''}>${g==='AB'?'A/B':g}</option>`).join('')}</select>`;
+      } else if (colId === '_del') {
+        td.innerHTML = `<button class="del-btn" onclick="removeItem(${item.id})">×</button>`;
+      }
+      tr.appendChild(td);
+    });
     tbody.appendChild(tr);
   });
 }
@@ -1070,7 +1140,7 @@ function recalc() {
     const maxBuyCostEach = qty > 0 ? maxBuyCostTotal / qty : 0;
     const maxBuyCostTotalClamped = Math.max(0, maxBuyCostTotal);
 
-    // Total Sell = qty × sale price (gross, before any deductions)
+    // Total Sell = gross minus deductions
     const sellCell = document.getElementById(`totalsell-${item.id}`);
     if (sellCell) {
       if (item.salePrice <= 0 || qty <= 0) {
@@ -1078,7 +1148,7 @@ function recalc() {
         sellCell.innerHTML = '<span>—</span><span class="calc-tag">auto</span>';
       } else {
         sellCell.className = 'calc-cell';
-        sellCell.innerHTML = `<span style="color:var(--blue)">${fmt(grossRevenue)}</span><span class="calc-tag">auto</span>`;
+        sellCell.innerHTML = `<span style="color:var(--blue)">${fmt(netRevenue)}</span><span class="calc-tag">auto</span>`;
       }
     }
 
@@ -1147,23 +1217,23 @@ function renderResults(d) {
   const empty = document.getElementById('emptyState');
   const content = document.getElementById('resultsContent');
 
-  const foot = document.getElementById('itemsFoot');
   if (items.length === 0) {
     empty.style.display = 'block';
     content.style.display = 'none';
-    if (foot) foot.style.display = 'none';
+    renderFooter(false);
     return;
   }
   empty.style.display = 'none';
   content.style.display = 'flex';
 
-  // Update table footer totals
-  if (foot) {
-    foot.style.display = '';
-    document.getElementById('footQty').textContent = d.totalUnits + ' units';
-    document.getElementById('footRevenue').textContent = fmt(d.totalRevenue);
-    document.getElementById('footMaxBuy').textContent = fmt(d.totalBuyCost);
-  }
+  // Rebuild footer in correct column order then populate
+  renderFooter(true);
+  const footQty     = document.getElementById('footQty');
+  const footRevenue = document.getElementById('footRevenue');
+  const footMaxBuy  = document.getElementById('footMaxBuy');
+  if (footQty)     footQty.textContent     = d.totalUnits + ' units';
+  if (footRevenue) footRevenue.textContent = fmt(d.totalNetRevenue);
+  if (footMaxBuy)  footMaxBuy.textContent  = fmt(d.totalBuyCost);
 
   // Net Profit block
   const profitBlock = document.getElementById('profitBlock');
@@ -1261,6 +1331,7 @@ function clearAll() {
   if (items.length && !confirm('Clear all line items?')) return;
   items = [];
   nextId = 1;
+  renderHeader();
   renderItems();
   recalc();
 }
@@ -1521,6 +1592,7 @@ function exportXLSX() {
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
+renderHeader();
 addItem();
 </script>
 </body>
