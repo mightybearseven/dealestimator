@@ -598,22 +598,31 @@
         <thead>
           <tr>
             <th style="width:180px">Part Number</th>
-            <th style="width:70px">Qty</th>
-            <th style="width:120px">Sale Price (ea)</th>
-            <th style="width:130px">Max Buy Cost (ea) ↗</th>
-            <th style="width:100px">Grade</th>
-            <th>Missing Components</th>
+            <th style="width:60px">Qty</th>
+            <th style="width:110px">Sale Price (ea)</th>
+            <th style="width:120px">Total Sell ↗</th>
+            <th style="width:120px">Max Buy (ea) ↗</th>
+            <th style="width:120px">Total Buy ↗</th>
+            <th style="width:90px">Grade</th>
             <th style="width:36px"></th>
           </tr>
         </thead>
         <tbody id="itemsBody"></tbody>
         <tfoot id="itemsFoot" style="display:none;">
           <tr style="border-top:2px solid var(--border2); background:var(--surface2);">
-            <td style="padding:7px 10px; font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted);">Total</td>
+            <td style="padding:7px 10px; font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted);">Totals</td>
             <td style="padding:7px 6px;"><span id="footQty" style="font-family:var(--mono); font-size:13px; font-weight:700; color:var(--text);"></span></td>
-            <td style="padding:7px 6px;"><span id="footRevenue" style="font-family:var(--mono); font-size:12px; font-weight:600; color:var(--blue);"></span></td>
-            <td style="padding:7px 6px;"><span id="footMaxBuy" style="font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent);"></span></td>
-            <td colspan="3"></td>
+            <td></td>
+            <td style="padding:7px 6px;">
+              <span style="font-family:var(--mono); font-size:9px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); display:block;">Total Sell</span>
+              <span id="footRevenue" style="font-family:var(--mono); font-size:12px; font-weight:700; color:var(--blue);"></span>
+            </td>
+            <td></td>
+            <td style="padding:7px 6px;">
+              <span style="font-family:var(--mono); font-size:9px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); display:block;">Total Buy</span>
+              <span id="footMaxBuy" style="font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent);"></span>
+            </td>
+            <td colspan="2"></td>
           </tr>
         </tfoot>
       </table>
@@ -949,25 +958,16 @@ function renderItems() {
       <td><input class="tbl-input w120" type="text" placeholder="e.g. 3KXY8AV" value="${item.pn}"
         oninput="updateItem(${item.id},'pn',this.value)"></td>
       <td><input class="tbl-input w80" type="number" value="${item.qty}" min="1" step="1"
-        oninput="updateItem(${item.id},'qty',parseFloat(this.value)||1)"></td>
+        oninput="updateItem(${item.id},'qty',parseFloat(this.value)||0)"></td>
       <td><input class="tbl-input w100" type="number" value="${item.salePrice}" min="0" step="0.01" placeholder="0.00"
         oninput="updateItem(${item.id},'salePrice',parseFloat(this.value)||0)"></td>
+      <td><div class="calc-cell zero" id="totalsell-${item.id}"><span>—</span><span class="calc-tag">auto</span></div></td>
       <td><div class="calc-cell zero" id="maxbuy-${item.id}"><span>—</span><span class="calc-tag">auto</span></div></td>
+      <td><div class="calc-cell zero" id="totalbuy-${item.id}"><span>—</span><span class="calc-tag">auto</span></div></td>
       <td>
         <select class="tbl-input" onchange="updateItem(${item.id},'grade',this.value)">
           ${['AB','C','D','F'].map(g => `<option value="${g}" ${item.grade===g?'selected':''}>${g === 'AB' ? 'A/B' : g}</option>`).join('')}
         </select>
-      </td>
-      <td>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${MISSING_KEYS.map(mk => `
-            <label style="display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:11px;color:var(--text-dim);cursor:pointer;white-space:nowrap;">
-              <input type="checkbox" ${item.missing.includes(mk.id)?'checked':''}
-                onchange="updateItem(${item.id},'missing','${mk.id}')"
-                style="accent-color:var(--accent);">
-              ${mk.label}
-            </label>`).join('')}
-        </div>
       </td>
       <td><button class="del-btn" onclick="removeItem(${item.id})">×</button></td>
     `;
@@ -1073,8 +1073,21 @@ function recalc() {
       - gradeDeductAmt
       - missingDeductAmt;
     const maxBuyCostEach = qty > 0 ? maxBuyCostTotal / qty : 0;
+    const maxBuyCostTotalClamped = Math.max(0, maxBuyCostTotal);
 
-    // Update the calc cell in the table
+    // Update Total Sell cell
+    const sellCell = document.getElementById(`totalsell-${item.id}`);
+    if (sellCell) {
+      if (item.salePrice <= 0 || qty <= 0) {
+        sellCell.className = 'calc-cell zero';
+        sellCell.innerHTML = '<span>—</span><span class="calc-tag">auto</span>';
+      } else {
+        sellCell.className = 'calc-cell';
+        sellCell.innerHTML = `<span style="color:var(--blue)">${fmt(rawRevenue)}</span><span class="calc-tag">auto</span>`;
+      }
+    }
+
+    // Update Max Buy (ea) cell
     const cell = document.getElementById(`maxbuy-${item.id}`);
     if (cell) {
       if (item.salePrice <= 0) {
@@ -1086,6 +1099,21 @@ function recalc() {
       } else {
         cell.className = 'calc-cell';
         cell.innerHTML = `<span>${fmt(maxBuyCostEach)}</span><span class="calc-tag">auto</span>`;
+      }
+    }
+
+    // Update Total Buy cell
+    const buyCell = document.getElementById(`totalbuy-${item.id}`);
+    if (buyCell) {
+      if (item.salePrice <= 0 || qty <= 0) {
+        buyCell.className = 'calc-cell zero';
+        buyCell.innerHTML = '<span>—</span><span class="calc-tag">auto</span>';
+      } else if (maxBuyCostTotalClamped <= 0) {
+        buyCell.className = 'calc-cell zero';
+        buyCell.innerHTML = `<span style="color:var(--danger)">$0.00</span><span class="calc-tag">auto</span>`;
+      } else {
+        buyCell.className = 'calc-cell';
+        buyCell.innerHTML = `<span>${fmt(maxBuyCostTotalClamped)}</span><span class="calc-tag">auto</span>`;
       }
     }
 
