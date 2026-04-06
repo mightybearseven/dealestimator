@@ -914,7 +914,7 @@ function handlePaste(raw) {
     const price = Math.max(0, parseFloat((priceRaw || '0').replace(/[$,]/g, '')) || 0);
 
     const id = nextId++;
-    items.push({ id, pn: pnRaw, qty, salePrice: price, buyCost: 0, failPct: 0 });
+    items.push({ id, pn: pnRaw, qty, salePrice: price, buyCost: 0, gradeC: 0, gradeD: 0, gradeF: 0 });
     added++;
   });
 
@@ -941,7 +941,7 @@ function showToast(msg, isErr) {
 // ── Item management ────────────────────────────────────────────────────────
 function addItem() {
   const id = nextId++;
-  items.push({ id, pn: '', qty: 1, buyCost: 0, salePrice: 0, failPct: 0 });
+  items.push({ id, pn: '', qty: 1, buyCost: 0, salePrice: 0, gradeC: 0, gradeD: 0, gradeF: 0 });
   renderHeader();
   renderItems();
   recalc();
@@ -963,14 +963,16 @@ function updateItem(id, field, value) {
 
 // ── Column order ───────────────────────────────────────────────────────────
 const COLUMNS = [
-  { id: 'pn',        label: 'Part Number',    width: '170px', draggable: true },
-  { id: 'qty',       label: 'Qty',            width: '60px',  draggable: true },
-  { id: 'salePrice', label: 'Sale Price (ea)',width: '110px', draggable: true },
-  { id: 'totalsell', label: 'Total Sell ↗',  width: '110px', draggable: true },
-  { id: 'maxbuy',    label: 'Max Buy (ea) ↗', width: '115px', draggable: true },
-  { id: 'totalbuy',  label: 'Total Buy ↗',   width: '110px', draggable: true },
-  { id: 'failPct',   label: 'Failure %',      width: '85px',  draggable: true },
-  { id: '_del',      label: '',               width: '36px',  draggable: false },
+  { id: 'pn',        label: 'Part Number',     width: '160px', draggable: true },
+  { id: 'qty',       label: 'Qty',             width: '60px',  draggable: true },
+  { id: 'salePrice', label: 'Sale Price (ea)', width: '105px', draggable: true },
+  { id: 'totalsell', label: 'Total Sell ↗',   width: '105px', draggable: true },
+  { id: 'gradeC',    label: 'Grade C %',       width: '80px',  draggable: true },
+  { id: 'gradeD',    label: 'Grade D %',       width: '80px',  draggable: true },
+  { id: 'gradeF',    label: 'Grade F %',       width: '80px',  draggable: true },
+  { id: 'maxbuy',    label: 'Max Buy (ea) ↗',  width: '115px', draggable: true },
+  { id: 'totalbuy',  label: 'Total Buy ↗',    width: '105px', draggable: true },
+  { id: '_del',      label: '',                width: '36px',  draggable: false },
 ];
 let columnOrder = COLUMNS.map(c => c.id);
 let dragSrcCol = null;
@@ -1024,16 +1026,16 @@ function renderFooter(show, deductData) {
   const colCount = columnOrder.length;
 
   // Build deductions row (only if there are deductions)
-  const hasDeductions = deductData && deductData.totalFailDeduct > 0;
+  const hasDeductions = deductData && deductData.totalGradeDeduct > 0;
   let deductRowHTML = '';
   if (hasDeductions) {
-    const totalDeduct = deductData.totalFailDeduct;
+    const totalDeduct = deductData.totalGradeDeduct;
     // Find index of totalsell column to know where to put the deduction detail
     const sellIdx = columnOrder.indexOf('totalsell');
     let cells = columnOrder.map((colId, i) => {
       if (i === 0) return `<td style="padding:5px 10px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--warn);">Deductions</td>`;
       if (colId === 'totalsell') return `<td style="padding:5px 6px;">
-        ${deductData.totalFailDeduct > 0 ? `<div style="font-family:var(--mono);font-size:11px;color:var(--danger);">− ${fmt(deductData.totalFailDeduct)} <span style="color:var(--text-muted);font-size:10px;">failure</span></div>` : ''}
+        <div style="font-family:var(--mono);font-size:11px;color:var(--danger);">− ${fmt(totalDeduct)} <span style="color:var(--text-muted);font-size:10px;">grade</span></div>
         <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--danger);border-top:1px solid var(--border);margin-top:3px;padding-top:3px;">= − ${fmt(totalDeduct)} total</div>
       </td>`;
       return `<td></td>`;
@@ -1074,12 +1076,14 @@ function renderItems() {
         td.innerHTML = `<div class="calc-cell zero" id="maxbuy-${item.id}"><span>—</span><span class="calc-tag">auto</span></div>`;
       } else if (colId === 'totalbuy') {
         td.innerHTML = `<div class="calc-cell zero" id="totalbuy-${item.id}"><span>—</span><span class="calc-tag">auto</span></div>`;
-      } else if (colId === 'failPct') {
-        td.innerHTML = `<div style="display:flex;align-items:center;gap:4px;">
-          <input class="tbl-input" type="number" value="${item.failPct ?? 0}" min="0" max="100" step="1" placeholder="0"
-            style="width:60px;text-align:right;"
-            oninput="updateItem(${item.id},'failPct',Math.min(100,Math.max(0,parseFloat(this.value)||0)))">
-          <span style="font-family:var(--mono);font-size:12px;color:var(--text-muted);">%</span>
+      } else if (colId === 'gradeC' || colId === 'gradeD' || colId === 'gradeF') {
+        const val = item[colId] ?? 0;
+        const color = colId === 'gradeC' ? '#b45309' : colId === 'gradeD' ? '#c2410c' : '#b91c1c';
+        td.innerHTML = `<div style="display:flex;align-items:center;gap:3px;">
+          <input class="tbl-input" type="number" value="${val}" min="0" max="100" step="1" placeholder="0"
+            style="width:52px;text-align:right;"
+            oninput="updateItem(${item.id},'${colId}',Math.min(100,Math.max(0,parseFloat(this.value)||0)))">
+          <span style="font-family:var(--mono);font-size:11px;color:${color};">%</span>
         </div>`;
       } else if (colId === '_del') {
         td.innerHTML = `<button class="del-btn" onclick="removeItem(${item.id})">×</button>`;
@@ -1099,25 +1103,40 @@ function recalc() {
   const shippingCost   = getNum('shippingCost');
   const platformFee    = getNum('platformFee') / 100;
 
+  // Grade deduction rates from config panel (% of sell price)
+  const deductRateC = getNum('deductC') / 100;
+  const deductRateD = getNum('deductD') / 100;
+  const deductRateF = getNum('deductF') / 100;
+
   // Total units for splitting shipping cost
   const totalUnits = items.reduce((s, i) => s + Math.max(0, i.qty || 0), 0);
 
   let totalRevenue = 0;
   let totalMaxBuyCost = 0;
-  let totalFailDeduct = 0;
+  let totalGradeDeduct = 0;
   let totalProcessing = 0;
   let totalPlatformFee = 0;
 
   const itemResults = items.map(item => {
-    const qty        = Math.max(0, item.qty || 0);
-    const failPct    = Math.min(100, Math.max(0, item.failPct || 0)) / 100;
-    const goodQty    = qty * (1 - failPct);   // units expected to sell
-    const grossRevenue  = item.salePrice * qty;
-    const failDeductAmt = item.salePrice * qty * failPct; // failed units = $0 sell value
-    const netRevenue = grossRevenue - failDeductAmt;
+    const qty          = Math.max(0, item.qty || 0);
+    const grossRevenue = item.salePrice * qty;
 
-    // Max Buy: back-calculated from net revenue and target margin only
-    const maxBuyCostTotal = netRevenue * (1 - targetMargin);
+    // Grade mix percentages for this line (% of units at each grade)
+    const gradeCPct = Math.min(100, Math.max(0, item.gradeC || 0)) / 100;
+    const gradeDPct = Math.min(100, Math.max(0, item.gradeD || 0)) / 100;
+    const gradeFPct = Math.min(100, Math.max(0, item.gradeF || 0)) / 100;
+
+    // Grade deduction reduces max buy: portion of line × configured deduction rate × gross revenue
+    const gradeDeductAmt = grossRevenue * (
+      gradeCPct * deductRateC +
+      gradeDPct * deductRateD +
+      gradeFPct * deductRateF
+    );
+
+    const netRevenue = grossRevenue; // sell price unaffected
+
+    // Max Buy: net revenue × (1 − margin) − grade deductions
+    const maxBuyCostTotal = netRevenue * (1 - targetMargin) - gradeDeductAmt;
     const maxBuyCostEach = qty > 0 ? maxBuyCostTotal / qty : 0;
     const maxBuyCostTotalClamped = Math.max(0, maxBuyCostTotal);
 
@@ -1167,21 +1186,21 @@ function recalc() {
     // Operating costs tracked at lot level for the separate card
     totalRevenue      += grossRevenue;
     totalMaxBuyCost   += maxBuyCostTotalClamped;
-    totalFailDeduct   += failDeductAmt;
+    totalGradeDeduct  += gradeDeductAmt;
     totalProcessing   += processingCost * qty;
     totalPlatformFee  += netRevenue * platformFee;
 
-    return { item, qty, grossRevenue, netRevenue, failDeductAmt, failPct, buyCostTotal: maxBuyCostTotalClamped, maxBuyCostEach };
+    return { item, qty, grossRevenue, netRevenue, gradeDeductAmt, gradeCPct, gradeDPct, gradeFPct, buyCostTotal: maxBuyCostTotalClamped, maxBuyCostEach };
   });
 
   const totalGrossRevenue = totalRevenue;
-  const totalNetRevenue   = totalGrossRevenue - totalFailDeduct;
+  const totalNetRevenue   = totalGrossRevenue; // sell price unaffected by grade deductions
   const totalOperating    = totalProcessing + shippingCost + totalPlatformFee;
-  const netProfit  = totalNetRevenue - totalMaxBuyCost - totalOperating;
+  const netProfit  = totalNetRevenue - totalMaxBuyCost - totalGradeDeduct - totalOperating;
   const actualMargin = totalNetRevenue > 0 ? netProfit / totalNetRevenue : 0;
 
   renderResults({ netProfit, actualMargin, targetMargin, totalRevenue: totalGrossRevenue, totalNetRevenue,
-    totalBuyCost: totalMaxBuyCost, totalFailDeduct, totalProcessing,
+    totalBuyCost: totalMaxBuyCost, totalGradeDeduct, totalProcessing,
     shippingCost, totalPlatformFee, itemResults, totalUnits });
 }
 
@@ -1208,7 +1227,7 @@ function renderResults(d) {
   content.style.display = 'flex';
 
   // Rebuild footer in correct column order then populate
-  renderFooter(true, { totalFailDeduct: d.totalFailDeduct });
+  renderFooter(true, { totalGradeDeduct: d.totalGradeDeduct });
   const footQty     = document.getElementById('footQty');
   const footRevenue = document.getElementById('footRevenue');
   const footMaxBuy  = document.getElementById('footMaxBuy');
@@ -1260,7 +1279,7 @@ function renderResults(d) {
   const grossRevenueVal = document.getElementById('grossRevenueVal');
   const revenueSub = document.getElementById('revenueSub');
   grossRevenueVal.textContent = fmt(d.totalNetRevenue);
-  const deductTotal = d.totalFailDeduct;
+  const deductTotal = d.totalGradeDeduct;
   revenueSub.textContent = deductTotal > 0
     ? `Gross ${fmt(d.totalRevenue)} − deductions ${fmt(deductTotal)}`
     : `${fmt(d.totalUnits > 0 ? d.totalNetRevenue / d.totalUnits : 0)}/unit avg`;
@@ -1291,7 +1310,7 @@ function renderResults(d) {
   // Breakdown
   const breakdown = [
     { label: 'Gross Sale Revenue',                                                        val: d.totalRevenue,          cls: 'pos' },
-    { label: 'Less: Failure Deduction',   val: -d.totalFailDeduct,     cls: 'neg' },
+    { label: 'Less: Grade Deductions',     val: -d.totalGradeDeduct,    cls: 'neg' },
     { label: '= Net Sale Revenue',                                                        val: d.totalNetRevenue,       cls: 'pos', bold: false, dim: true },
     { label: 'Less: Acquisition Cost',                                                    val: -d.totalBuyCost,         cls: 'neg' },
     { label: 'Less: Operating Costs',                                                     val: -(d.totalProcessing + d.shippingCost + d.totalPlatformFee), cls: 'neg' },
@@ -1319,7 +1338,9 @@ function renderResults(d) {
         <span style="color:var(--text-muted)">Net rev: <span style="color:var(--text-dim)">${fmt(ir.netRevenue)}</span></span>
       </div>
       <div style="display:flex;gap:8px;width:100%;font-size:10px;">
-        <span style="color:var(--text-muted)">Failure rate: <span style="color:var(--warn)">${(ir.failPct*100).toFixed(0)}%</span></span>
+        <span style="color:var(--text-muted)">C: <span style="color:var(--warn)">${(ir.gradeCPct*100).toFixed(0)}%</span></span>
+        <span style="color:var(--text-muted)">D: <span style="color:var(--warn)">${(ir.gradeDPct*100).toFixed(0)}%</span></span>
+        <span style="color:var(--text-muted)">F: <span style="color:var(--warn)">${(ir.gradeFPct*100).toFixed(0)}%</span></span>
       </div>
     </div>`;
   }).join('');
@@ -1394,33 +1415,38 @@ function exportXLSX() {
       // Totals waterfall — failure % is per-line item
       sum.push([hdr('DEAL SUMMARY — WATERFALL', '243447', 'E8EAF0'), hdr('AMOUNT', '243447', 'E8EAF0'), hdr('FORMULA / NOTE', '243447', 'E8EAF0'), blank(), blank()]);
 
-      let totRev=0, totFail=0, totProc=0, totPlat=0, totBuy=0;
+      let totRev=0, totGrade=0, totProc=0, totPlat=0, totBuy=0;
       const itemCalcs = items.map(item => {
         const qty      = Math.max(0, item.qty || 0);
-        const failPct  = Math.min(100, Math.max(0, item.failPct || 0)) / 100;
         const rawRev   = item.salePrice * qty;
-        const failD    = rawRev * failPct;
-        const netRev   = rawRev - failD;
-        const maxBuyTotal = netRev * (1 - targetMargin);
+        const gradeCp  = Math.min(100, Math.max(0, item.gradeC || 0)) / 100;
+        const gradeDp  = Math.min(100, Math.max(0, item.gradeD || 0)) / 100;
+        const gradeFp  = Math.min(100, Math.max(0, item.gradeF || 0)) / 100;
+        const deductRateC = getNum('deductC') / 100;
+        const deductRateD = getNum('deductD') / 100;
+        const deductRateF = getNum('deductF') / 100;
+        const gradeD   = rawRev * (gradeCp*deductRateC + gradeDp*deductRateD + gradeFp*deductRateF);
+        const netRev   = rawRev;
+        const maxBuyTotal = netRev * (1 - targetMargin) - gradeD;
         const maxBuyEa = qty > 0 ? Math.max(0, maxBuyTotal/qty) : 0;
         const platCut  = netRev * platformFee;
         totRev   += rawRev;
-        totFail  += failD;
+        totGrade += gradeD;
         totProc  += processingCost * qty;
         totPlat  += platCut;
         totBuy   += Math.max(0, maxBuyTotal);
-        return { item, qty, rawRev, failD, failPct, netRev, platCut, maxBuyTotal, maxBuyEa };
+        return { item, qty, rawRev, gradeD, gradeCp, gradeDp, gradeFp, netRev, platCut, maxBuyTotal, maxBuyEa };
       });
 
-      const totNetRev = totRev - totFail;
+      const totNetRev = totRev;
       const totOperating = totProc + shippingCost + totPlat;
       const totNetProfit = totNetRev - totBuy - totOperating;
       const actualMarginVal = totNetRev > 0 ? totNetProfit / totNetRev : 0;
 
       const wfRows = [
         ['Gross Sale Revenue',          totRev,         'Sum of (Sale Price × Qty) per line item',              '00C853', '000000'],
-        ['Less: Failure Deductions',   -totFail,        'Sale Revenue × Failure % per line item',               'FF5252', 'FFFFFF'],
-        ['= Net Sale Revenue',          totNetRev,      'Gross Revenue − Failure Deductions',                   '1565C0', 'FFFFFF'],
+        ['Less: Grade Deductions',     -totGrade,       'Gross Revenue × grade mix % × deduction rate',         'FF5252', 'FFFFFF'],
+        ['= Net After Deductions',      totNetRev-totGrade, 'Gross Revenue − Grade Deductions',                 '1565C0', 'FFFFFF'],
         ['Less: Max Buy Cost',         -totBuy,         `Net Revenue × (1 − ${targetMarginPct}% target margin)`,'FF5252', 'FFFFFF'],
         ['Less: Processing Cost',      -totProc,        `$${processingCost}/unit × ${totalUnits} total units`,  'FF5252', 'FFFFFF'],
         ['Less: Shipping Cost',        -shippingCost,   'Flat lot shipping cost',                               'FF5252', 'FFFFFF'],
@@ -1461,7 +1487,7 @@ function exportXLSX() {
 
       const detHdrs = [
         'Part Number','Qty','Sale Price (ea)','Gross Revenue',
-        'Failure %','Failure Deduct $','Net Revenue',
+        'C%','D%','F%','Grade Deduct $','Net Revenue',
         'Max Buy (total)','Max Buy (ea)','Actual Margin %'
       ];
       det.push(detHdrs.map(h => hdr(h, '1E3A5F', 'A3C4E8')));
@@ -1474,8 +1500,10 @@ function exportXLSX() {
           num(ic.qty, false, '111827', rowBg),
           money(ic.item.salePrice, false, '0000FF', rowBg),
           money(ic.rawRev, false, '000000', rowBg),
-          pct(ic.failPct, false, '0000FF', rowBg),
-          money(-ic.failD, false, ic.failD>0?'C62828':'374151', rowBg),
+          pct(ic.gradeCp, false, '0000FF', rowBg),
+          pct(ic.gradeDp, false, '0000FF', rowBg),
+          pct(ic.gradeFp, false, '0000FF', rowBg),
+          money(-ic.gradeD, false, ic.gradeD>0?'C62828':'374151', rowBg),
           money(ic.netRev, false, '1565C0', rowBg),
           money(Math.max(0, ic.maxBuyTotal), false, '000000', rowBg),
           money(ic.maxBuyEa, false, '0000FF', rowBg),
@@ -1490,7 +1518,8 @@ function exportXLSX() {
         blank(),
         money(totRev, true, 'FFFFFF', '1E3A5F'),
         blank(),
-        money(-totFail, true, 'FFFFFF', '1E3A5F'),
+        blank(), blank(), blank(),
+        money(-totGrade, true, 'FFFFFF', '1E3A5F'),
         money(totNetRev, true, 'FFFFFF', '1E3A5F'),
         money(totBuy, true, 'FFFFFF', '1E3A5F'),
         blank(),
@@ -1501,8 +1530,8 @@ function exportXLSX() {
       det.push([c('FORMULA KEY', 's', null, true, '1E3A5F', 'D1E8FF', 'left')]);
       const formulas = [
         ['Gross Revenue',        'Sale Price (ea) × Qty'],
-        ['Failure Deduct $',     'Gross Revenue × Failure %  (failed units have $0 sell value)'],
-        ['Net Revenue',          'Gross Revenue − Failure Deduct'],
+        ['Grade Deduct $',       'Gross Revenue × (C%×C_rate + D%×D_rate + F%×F_rate)'],
+        ['Net Revenue',          'Gross Revenue (sell price unaffected; grade deducts reduce max buy)'],
         ['Max Buy Cost (total)', 'Net Revenue × (1 − Target Margin %)'],
         ['Max Buy Cost (ea)',    'Max Buy Cost (total) ÷ Qty'],
         ['Actual Margin %',      '(Net Revenue − Max Buy Cost) ÷ Net Revenue'],
