@@ -1151,13 +1151,13 @@ function renderResults(d) {
   profitSub.textContent = `${d.totalUnits} unit${d.totalUnits!==1?'s':''}${profitMarginLabel}`;
   profitBlock.className = 'result-block ' + (d.netProfit > 0 ? 'highlight' : d.netProfit < 0 ? 'highlight-danger' : '');
 
-  // COG block — max buy cost + operating costs (deductions are recovered from seller, not a cost)
-  const totalCOG = d.totalBuyCost + d.totalProcessing + d.shippingCost + d.totalPlatformFee;
+  // COG block — max buy cost already has processing baked in via back-calculation, don't add twice
+  const totalCOG = d.totalBuyCost + d.shippingCost + d.totalPlatformFee;
   const cogVal = document.getElementById('cogVal');
   const cogSub = document.getElementById('cogSub');
   cogVal.textContent = fmt(totalCOG);
   const cogPerUnit = d.totalUnits > 0 ? totalCOG / d.totalUnits : 0;
-  cogSub.textContent = `${fmt(cogPerUnit)}/unit avg · buy cost + operating costs`;
+  cogSub.textContent = `${fmt(cogPerUnit)}/unit avg · buy cost + shipping + platform fee`;
 
   // Gross Revenue block
   const grossRevenueVal = document.getElementById('grossRevenueVal');
