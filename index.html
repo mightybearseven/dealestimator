@@ -660,62 +660,6 @@
       </div>
     </div>
 
-    <!-- DEDUCTIONS -->
-    <div class="section-label">Deductions</div>
-    <div class="deductions-grid" style="grid-template-columns:1fr;">
-
-      <!-- Missing Components -->
-      <div class="deduct-group">
-        <div class="deduct-group-title">
-          Missing Component Chargebacks
-          <span class="deduct-tag flat">$ per unit</span>
-        </div>
-        <!-- Column headers -->
-        <div class="deduct-row" style="padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:6px;">
-          <span class="deduct-name" style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);">Component</span>
-          <span style="font-family:var(--mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);width:88px;text-align:right;">Deduct $</span>
-          <span style="font-family:var(--mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--warn);width:88px;text-align:right;padding-right:4px;">Lot Mix %</span>
-        </div>
-        <div class="deduct-row">
-          <span class="deduct-name">HDD / SSD</span>
-          <div class="deduct-input-wrap">
-            <span class="deduct-sym">$</span>
-            <input class="deduct-input" type="number" id="missingHDD" value="25" min="0" step="1" oninput="recalc()">
-          </div>
-          <div class="deduct-input-wrap" style="margin-left:8px;">
-            <input class="deduct-input mix-input" type="number" id="mixHDD" value="0" min="0" max="100" step="1" oninput="recalc()">
-            <span class="deduct-sym">%</span>
-          </div>
-        </div>
-        <div class="deduct-row">
-          <span class="deduct-name">Memory / RAM</span>
-          <div class="deduct-input-wrap">
-            <span class="deduct-sym">$</span>
-            <input class="deduct-input" type="number" id="missingRAM" value="20" min="0" step="1" oninput="recalc()">
-          </div>
-          <div class="deduct-input-wrap" style="margin-left:8px;">
-            <input class="deduct-input mix-input" type="number" id="mixRAM" value="0" min="0" max="100" step="1" oninput="recalc()">
-            <span class="deduct-sym">%</span>
-          </div>
-        </div>
-        <div class="deduct-row">
-          <span class="deduct-name">Power Adapter</span>
-          <div class="deduct-input-wrap">
-            <span class="deduct-sym">$</span>
-            <input class="deduct-input" type="number" id="missingAdapter" value="15" min="0" step="1" oninput="recalc()">
-          </div>
-          <div class="deduct-input-wrap" style="margin-left:8px;">
-            <input class="deduct-input mix-input" type="number" id="mixAdapter" value="0" min="0" max="100" step="1" oninput="recalc()">
-            <span class="deduct-sym">%</span>
-          </div>
-        </div>
-        <div style="margin-top:10px;padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);">
-          <div style="font-family:var(--mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Blended Missing Deduct / Unit</div>
-          <div id="blendedMissing" style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--warn);">$0.00</div>
-          <div style="font-family:var(--mono);font-size:10px;color:var(--text-muted);margin-top:3px;">applied to all units via lot mix %</div>
-        </div>
-      </div>
-    </div>
 
   </div>
 
@@ -791,11 +735,6 @@
 let items = [];
 let nextId = 1;
 
-const MISSING_KEYS = [
-  { id: 'missingHDD',     label: 'HDD/SSD' },
-  { id: 'missingRAM',     label: 'RAM' },
-  { id: 'missingAdapter', label: 'Adapter' },
-];
 
 // ── Paste from Excel ───────────────────────────────────────────────────────
 function handlePaste(raw) {
@@ -821,7 +760,7 @@ function handlePaste(raw) {
     const price = Math.max(0, parseFloat((priceRaw || '0').replace(/[$,]/g, '')) || 0);
 
     const id = nextId++;
-    items.push({ id, pn: pnRaw, qty, salePrice: price, buyCost: 0, failPct: 0, missing: [] });
+    items.push({ id, pn: pnRaw, qty, salePrice: price, buyCost: 0, failPct: 0 });
     added++;
   });
 
@@ -848,7 +787,7 @@ function showToast(msg, isErr) {
 // ── Item management ────────────────────────────────────────────────────────
 function addItem() {
   const id = nextId++;
-  items.push({ id, pn: '', qty: 1, buyCost: 0, salePrice: 0, failPct: 0, missing: [] });
+  items.push({ id, pn: '', qty: 1, buyCost: 0, salePrice: 0, failPct: 0 });
   renderHeader();
   renderItems();
   recalc();
@@ -864,13 +803,7 @@ function removeItem(id) {
 function updateItem(id, field, value) {
   const item = items.find(i => i.id === id);
   if (!item) return;
-  if (field === 'missing') {
-    const key = value;
-    if (item.missing.includes(key)) item.missing = item.missing.filter(k => k !== key);
-    else item.missing.push(key);
-  } else {
-    item[field] = value;
-  }
+  item[field] = value;
   recalc();
 }
 
@@ -937,17 +870,16 @@ function renderFooter(show, deductData) {
   const colCount = columnOrder.length;
 
   // Build deductions row (only if there are deductions)
-  const hasDeductions = deductData && (deductData.totalFailDeduct > 0 || deductData.totalMissingDeduct > 0);
+  const hasDeductions = deductData && deductData.totalFailDeduct > 0;
   let deductRowHTML = '';
   if (hasDeductions) {
-    const totalDeduct = deductData.totalFailDeduct + deductData.totalMissingDeduct;
+    const totalDeduct = deductData.totalFailDeduct;
     // Find index of totalsell column to know where to put the deduction detail
     const sellIdx = columnOrder.indexOf('totalsell');
     let cells = columnOrder.map((colId, i) => {
       if (i === 0) return `<td style="padding:5px 10px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--warn);">Deductions</td>`;
       if (colId === 'totalsell') return `<td style="padding:5px 6px;">
         ${deductData.totalFailDeduct > 0 ? `<div style="font-family:var(--mono);font-size:11px;color:var(--danger);">− ${fmt(deductData.totalFailDeduct)} <span style="color:var(--text-muted);font-size:10px;">failure</span></div>` : ''}
-        ${deductData.totalMissingDeduct > 0 ? `<div style="font-family:var(--mono);font-size:11px;color:var(--danger);">− ${fmt(deductData.totalMissingDeduct)} <span style="color:var(--text-muted);font-size:10px;">missing</span></div>` : ''}
         <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--danger);border-top:1px solid var(--border);margin-top:3px;padding-top:3px;">= − ${fmt(totalDeduct)} total</div>
       </td>`;
       return `<td></td>`;
@@ -1013,28 +945,12 @@ function recalc() {
   const shippingCost   = getNum('shippingCost');
   const platformFee    = getNum('platformFee') / 100;
 
-  const missingVals = {};
-  MISSING_KEYS.forEach(mk => missingVals[mk.id] = getNum(mk.id));
-
-  // Blended missing deduct per unit = each component's $ × its lot mix %
-  const mixMissing = {
-    missingHDD:     getNum('mixHDD') / 100,
-    missingRAM:     getNum('mixRAM') / 100,
-    missingAdapter: getNum('mixAdapter') / 100,
-  };
-  const blendedMissingPerUnit = MISSING_KEYS.reduce((s, mk) => s + (missingVals[mk.id] * mixMissing[mk.id]), 0);
-
-  // Update blended missing display
-  const bmEl = document.getElementById('blendedMissing');
-  if (bmEl) bmEl.textContent = fmt(blendedMissingPerUnit);
-
   // Total units for splitting shipping cost
   const totalUnits = items.reduce((s, i) => s + Math.max(0, i.qty || 0), 0);
 
   let totalRevenue = 0;
   let totalMaxBuyCost = 0;
   let totalFailDeduct = 0;
-  let totalMissingDeduct = 0;
   let totalProcessing = 0;
   let totalPlatformFee = 0;
 
@@ -1044,8 +960,7 @@ function recalc() {
     const goodQty    = qty * (1 - failPct);   // units expected to sell
     const grossRevenue  = item.salePrice * qty;
     const failDeductAmt = item.salePrice * qty * failPct; // failed units = $0 sell value
-    const missingDeductAmt = blendedMissingPerUnit * qty;
-    const netRevenue = grossRevenue - failDeductAmt - missingDeductAmt;
+    const netRevenue = grossRevenue - failDeductAmt;
 
     // Max Buy: back-calculated from net revenue and target margin only
     const maxBuyCostTotal = netRevenue * (1 - targetMargin);
@@ -1099,22 +1014,21 @@ function recalc() {
     totalRevenue      += grossRevenue;
     totalMaxBuyCost   += maxBuyCostTotalClamped;
     totalFailDeduct   += failDeductAmt;
-    totalMissingDeduct += missingDeductAmt;
     totalProcessing   += processingCost * qty;
     totalPlatformFee  += netRevenue * platformFee;
 
-    return { item, qty, grossRevenue, netRevenue, failDeductAmt, missingDeductAmt, failPct, buyCostTotal: maxBuyCostTotalClamped, maxBuyCostEach, blendedMissingPerUnit };
+    return { item, qty, grossRevenue, netRevenue, failDeductAmt, failPct, buyCostTotal: maxBuyCostTotalClamped, maxBuyCostEach };
   });
 
   const totalGrossRevenue = totalRevenue;
-  const totalNetRevenue   = totalGrossRevenue - totalFailDeduct - totalMissingDeduct;
+  const totalNetRevenue   = totalGrossRevenue - totalFailDeduct;
   const totalOperating    = totalProcessing + shippingCost + totalPlatformFee;
   const netProfit  = totalNetRevenue - totalMaxBuyCost - totalOperating;
   const actualMargin = totalNetRevenue > 0 ? netProfit / totalNetRevenue : 0;
 
   renderResults({ netProfit, actualMargin, targetMargin, totalRevenue: totalGrossRevenue, totalNetRevenue,
-    totalBuyCost: totalMaxBuyCost, totalFailDeduct, totalMissingDeduct, totalProcessing,
-    shippingCost, totalPlatformFee, itemResults, totalUnits, blendedMissingPerUnit });
+    totalBuyCost: totalMaxBuyCost, totalFailDeduct, totalProcessing,
+    shippingCost, totalPlatformFee, itemResults, totalUnits });
 }
 
 // ── Render results ─────────────────────────────────────────────────────────
@@ -1140,7 +1054,7 @@ function renderResults(d) {
   content.style.display = 'flex';
 
   // Rebuild footer in correct column order then populate
-  renderFooter(true, { totalFailDeduct: d.totalFailDeduct, totalMissingDeduct: d.totalMissingDeduct });
+  renderFooter(true, { totalFailDeduct: d.totalFailDeduct });
   const footQty     = document.getElementById('footQty');
   const footRevenue = document.getElementById('footRevenue');
   const footMaxBuy  = document.getElementById('footMaxBuy');
@@ -1192,7 +1106,7 @@ function renderResults(d) {
   const grossRevenueVal = document.getElementById('grossRevenueVal');
   const revenueSub = document.getElementById('revenueSub');
   grossRevenueVal.textContent = fmt(d.totalNetRevenue);
-  const deductTotal = d.totalFailDeduct + d.totalMissingDeduct;
+  const deductTotal = d.totalFailDeduct;
   revenueSub.textContent = deductTotal > 0
     ? `Gross ${fmt(d.totalRevenue)} − deductions ${fmt(deductTotal)}`
     : `${fmt(d.totalUnits > 0 ? d.totalNetRevenue / d.totalUnits : 0)}/unit avg`;
@@ -1224,7 +1138,6 @@ function renderResults(d) {
   const breakdown = [
     { label: 'Gross Sale Revenue',                                                        val: d.totalRevenue,          cls: 'pos' },
     { label: 'Less: Failure Deduction',   val: -d.totalFailDeduct,     cls: 'neg' },
-    { label: `Less: Missing Parts Deduction (${fmt(d.blendedMissingPerUnit)}/unit)`,     val: -d.totalMissingDeduct,   cls: 'neg' },
     { label: '= Net Sale Revenue',                                                        val: d.totalNetRevenue,       cls: 'pos', bold: false, dim: true },
     { label: 'Less: Acquisition Cost',                                                    val: -d.totalBuyCost,         cls: 'neg' },
     { label: 'Less: Operating Costs',                                                     val: -(d.totalProcessing + d.shippingCost + d.totalPlatformFee), cls: 'neg' },
@@ -1253,7 +1166,6 @@ function renderResults(d) {
       </div>
       <div style="display:flex;gap:8px;width:100%;font-size:10px;">
         <span style="color:var(--text-muted)">Failure rate: <span style="color:var(--warn)">${(ir.failPct*100).toFixed(0)}%</span></span>
-        <span style="color:var(--text-muted)">Missing chargeback: <span style="color:var(--warn)">${fmt(ir.blendedMissingPerUnit)}/unit</span></span>
       </div>
     </div>`;
   }).join('');
@@ -1287,10 +1199,6 @@ function exportXLSX() {
       const shippingCost    = getNum('shippingCost');
       const platformFeePct  = getNum('platformFee');
       const platformFee     = platformFeePct / 100;
-      const missingVals = {};
-      MISSING_KEYS.forEach(mk => missingVals[mk.id] = getNum(mk.id));
-      const mixHDD = getNum('mixHDD')/100, mixRAM = getNum('mixRAM')/100, mixAdapter = getNum('mixAdapter')/100;
-      const blendedMissingPU = missingVals.missingHDD*mixHDD + missingVals.missingRAM*mixRAM + missingVals.missingAdapter*mixAdapter;
       const totalUnits = items.reduce((s, i) => s + Math.max(0, i.qty || 0), 0);
 
       // ── Helper: style cell object ─────────────────────────────────────────
@@ -1322,37 +1230,35 @@ function exportXLSX() {
       sum.push([blank()]);
 
       // Config assumptions box
-      sum.push([hdr('ASSUMPTIONS', '1A2535', 'A3C4E8'), hdr('VALUE', '1A2535', 'A3C4E8'), blank(), hdr('MISSING COMPONENT DEDUCTIONS', '1A2535', 'A3C4E8'), hdr('VALUE', '1A2535', 'A3C4E8')]);
-      sum.push([lbl('Target Margin',true,'000000'), pct(targetMargin, false, '0000FF'), blank(), lbl('Missing HDD/SSD ($)',false,'374151'), money(missingVals.missingHDD)]);
-      sum.push([lbl('Processing Cost / Unit',true,'000000'), money(processingCost, false, '0000FF'), blank(), lbl('Missing RAM ($)',false,'374151'), money(missingVals.missingRAM)]);
-      sum.push([lbl('Shipping Cost (lot)',true,'000000'), money(shippingCost, false, '0000FF'), blank(), lbl('Missing Adapter ($)',false,'374151'), money(missingVals.missingAdapter)]);
-      sum.push([lbl('Platform Fee',true,'000000'), pct(platformFee, false, '0000FF'), blank(), lbl('Blended Missing/Unit',true,'000000'), money(blendedMissingPU)]);
+      sum.push([hdr('ASSUMPTIONS', '1A2535', 'A3C4E8'), hdr('VALUE', '1A2535', 'A3C4E8'), blank(), blank(), blank()]);
+      sum.push([lbl('Target Margin',true,'000000'), pct(targetMargin, false, '0000FF'), blank(), blank(), blank()]);
+      sum.push([lbl('Processing Cost / Unit',true,'000000'), money(processingCost, false, '0000FF'), blank(), blank(), blank()]);
+      sum.push([lbl('Shipping Cost (lot)',true,'000000'), money(shippingCost, false, '0000FF'), blank(), blank(), blank()]);
+      sum.push([lbl('Platform Fee',true,'000000'), pct(platformFee, false, '0000FF'), blank(), blank(), blank()]);
       sum.push([blank()]);
 
       // Totals waterfall — failure % is per-line item
       sum.push([hdr('DEAL SUMMARY — WATERFALL', '243447', 'E8EAF0'), hdr('AMOUNT', '243447', 'E8EAF0'), hdr('FORMULA / NOTE', '243447', 'E8EAF0'), blank(), blank()]);
 
-      let totRev=0, totFail=0, totMiss=0, totProc=0, totPlat=0, totBuy=0;
+      let totRev=0, totFail=0, totProc=0, totPlat=0, totBuy=0;
       const itemCalcs = items.map(item => {
         const qty      = Math.max(0, item.qty || 0);
         const failPct  = Math.min(100, Math.max(0, item.failPct || 0)) / 100;
         const rawRev   = item.salePrice * qty;
         const failD    = rawRev * failPct;
-        const missD    = blendedMissingPU * qty;
-        const netRev   = rawRev - failD - missD;
+        const netRev   = rawRev - failD;
         const maxBuyTotal = netRev * (1 - targetMargin);
         const maxBuyEa = qty > 0 ? Math.max(0, maxBuyTotal/qty) : 0;
         const platCut  = netRev * platformFee;
         totRev   += rawRev;
         totFail  += failD;
-        totMiss  += missD;
         totProc  += processingCost * qty;
         totPlat  += platCut;
         totBuy   += Math.max(0, maxBuyTotal);
-        return { item, qty, rawRev, failD, failPct, missD, netRev, platCut, maxBuyTotal, maxBuyEa };
+        return { item, qty, rawRev, failD, failPct, netRev, platCut, maxBuyTotal, maxBuyEa };
       });
 
-      const totNetRev = totRev - totFail - totMiss;
+      const totNetRev = totRev - totFail;
       const totOperating = totProc + shippingCost + totPlat;
       const totNetProfit = totNetRev - totBuy - totOperating;
       const actualMarginVal = totNetRev > 0 ? totNetProfit / totNetRev : 0;
@@ -1360,8 +1266,7 @@ function exportXLSX() {
       const wfRows = [
         ['Gross Sale Revenue',          totRev,         'Sum of (Sale Price × Qty) per line item',              '00C853', '000000'],
         ['Less: Failure Deductions',   -totFail,        'Sale Revenue × Failure % per line item',               'FF5252', 'FFFFFF'],
-        ['Less: Missing Part Deduct',  -totMiss,        'Blended missing component $ × Qty per item',           'FF5252', 'FFFFFF'],
-        ['= Net Sale Revenue',          totNetRev,      'Gross Revenue − Failure Deductions − Missing Deduct',  '1565C0', 'FFFFFF'],
+        ['= Net Sale Revenue',          totNetRev,      'Gross Revenue − Failure Deductions',                   '1565C0', 'FFFFFF'],
         ['Less: Max Buy Cost',         -totBuy,         `Net Revenue × (1 − ${targetMarginPct}% target margin)`,'FF5252', 'FFFFFF'],
         ['Less: Processing Cost',      -totProc,        `$${processingCost}/unit × ${totalUnits} total units`,  'FF5252', 'FFFFFF'],
         ['Less: Shipping Cost',        -shippingCost,   'Flat lot shipping cost',                               'FF5252', 'FFFFFF'],
@@ -1402,7 +1307,7 @@ function exportXLSX() {
 
       const detHdrs = [
         'Part Number','Qty','Sale Price (ea)','Gross Revenue',
-        'Failure %','Failure Deduct $','Missing Deduct $','Net Revenue',
+        'Failure %','Failure Deduct $','Net Revenue',
         'Max Buy (total)','Max Buy (ea)','Actual Margin %'
       ];
       det.push(detHdrs.map(h => hdr(h, '1E3A5F', 'A3C4E8')));
@@ -1417,7 +1322,6 @@ function exportXLSX() {
           money(ic.rawRev, false, '000000', rowBg),
           pct(ic.failPct, false, '0000FF', rowBg),
           money(-ic.failD, false, ic.failD>0?'C62828':'374151', rowBg),
-          money(-ic.missD, false, ic.missD>0?'C62828':'374151', rowBg),
           money(ic.netRev, false, '1565C0', rowBg),
           money(Math.max(0, ic.maxBuyTotal), false, '000000', rowBg),
           money(ic.maxBuyEa, false, '0000FF', rowBg),
@@ -1433,7 +1337,6 @@ function exportXLSX() {
         money(totRev, true, 'FFFFFF', '1E3A5F'),
         blank(),
         money(-totFail, true, 'FFFFFF', '1E3A5F'),
-        money(-totMiss, true, 'FFFFFF', '1E3A5F'),
         money(totNetRev, true, 'FFFFFF', '1E3A5F'),
         money(totBuy, true, 'FFFFFF', '1E3A5F'),
         blank(),
@@ -1445,8 +1348,7 @@ function exportXLSX() {
       const formulas = [
         ['Gross Revenue',        'Sale Price (ea) × Qty'],
         ['Failure Deduct $',     'Gross Revenue × Failure %  (failed units have $0 sell value)'],
-        ['Missing Deduct $',     'Blended missing component $/unit × Qty'],
-        ['Net Revenue',          'Gross Revenue − Failure Deduct − Missing Deduct'],
+        ['Net Revenue',          'Gross Revenue − Failure Deduct'],
         ['Max Buy Cost (total)', 'Net Revenue × (1 − Target Margin %)'],
         ['Max Buy Cost (ea)',    'Max Buy Cost (total) ÷ Qty'],
         ['Actual Margin %',      '(Net Revenue − Max Buy Cost) ÷ Net Revenue'],
@@ -1460,25 +1362,7 @@ function exportXLSX() {
       ws2['!merges'] = [{s:{r:0,c:0},e:{r:0,c:10}}];
       XLSX.utils.book_append_sheet(wb, ws2, 'Line Item Detail');
 
-      // ════════════════════════════════════════════════════════════════════
-      // SHEET 3: DEDUCTION REFERENCE
-      // ════════════════════════════════════════════════════════════════════
-      const ref = [];
-      ref.push([c('DEDUCTION REFERENCE SHEET', 's', null, true, '00E5A0', '0D0F12', 'left'), blank(), blank()]);
-      ref.push([blank()]);
-      ref.push([hdr('FAILURE RATE', '1E3A5F', 'A3C4E8'), hdr('EFFECT', '1E3A5F', 'A3C4E8'), blank()]);
-      ref.push([c('Set per line item (0–100%)', 's', null, false, '111827'), c('Failed units contribute $0 to sell revenue. Reduces Net Revenue and Max Buy proportionally.', 's', null, false, '374151'), blank()]);
-      ref.push([blank()]);
-      ref.push([hdr('MISSING COMPONENTS ($ per unit deducted)', '1E3A5F', 'A3C4E8'), hdr('DEDUCT $', '1E3A5F', 'A3C4E8'), hdr('LOT MIX %', '1E3A5F', 'A3C4E8')]);
-      [['missingHDD','HDD / SSD Drive',mixHDD],['missingRAM','Memory / RAM',mixRAM],['missingAdapter','Power Adapter',mixAdapter]].forEach(([id,label,mix]) => {
-        ref.push([c(label, 's', null, false, '111827'), money(missingVals[id], false, '0000FF'), pct(mix, false, '0000FF')]);
-      });
-      ref.push([c('Blended Missing $/unit', 's', null, true, '000000'), money(blendedMissingPU, true, '000000'), blank()]);
 
-      const ws3 = XLSX.utils.aoa_to_sheet(ref);
-      ws3['!cols'] = [{wch:38},{wch:14},{wch:38}];
-      ws3['!merges'] = [{s:{r:0,c:0},e:{r:0,c:2}}];
-      XLSX.utils.book_append_sheet(wb, ws3, 'Deduction Reference');
 
       // ── Download ──────────────────────────────────────────────────────────
       const dateStr = new Date().toISOString().slice(0,10);
