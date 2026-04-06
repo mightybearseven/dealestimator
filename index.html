@@ -1078,12 +1078,14 @@ function renderItems() {
         td.innerHTML = `<div class="calc-cell zero" id="totalbuy-${item.id}"><span>—</span><span class="calc-tag">auto</span></div>`;
       } else if (colId === 'gradeC' || colId === 'gradeD' || colId === 'gradeF') {
         const val = item[colId] ?? 0;
+        const total = (item.gradeC || 0) + (item.gradeD || 0) + (item.gradeF || 0);
+        const over = total > 100;
         const color = colId === 'gradeC' ? '#b45309' : colId === 'gradeD' ? '#c2410c' : '#b91c1c';
-        td.innerHTML = `<div style="display:flex;align-items:center;gap:3px;">
+        td.innerHTML = `<div style="display:flex;align-items:center;gap:3px;" title="${over ? `⚠ C+D+F = ${total}% — exceeds 100%` : ''}">
           <input class="tbl-input" type="number" value="${val}" min="0" max="100" step="1" placeholder="0"
-            style="width:52px;text-align:right;"
+            style="width:52px;text-align:right;${over ? 'border-color:var(--danger);color:var(--danger);' : ''}"
             oninput="updateItem(${item.id},'${colId}',Math.min(100,Math.max(0,parseFloat(this.value)||0)))">
-          <span style="font-family:var(--mono);font-size:11px;color:${color};">%</span>
+          <span style="font-family:var(--mono);font-size:11px;color:${over ? 'var(--danger)' : color};">${over && colId === 'gradeF' ? '⚠' : '%'}</span>
         </div>`;
       } else if (colId === '_del') {
         td.innerHTML = `<button class="del-btn" onclick="removeItem(${item.id})">×</button>`;
@@ -1121,16 +1123,18 @@ function recalc() {
     const qty          = Math.max(0, item.qty || 0);
     const grossRevenue = item.salePrice * qty;
 
-    // Grade mix percentages for this line (% of units at each grade)
+    // Grade mix percentages for this line — capped at 100% total, remainder is A/B (0% deduction)
     const gradeCPct = Math.min(100, Math.max(0, item.gradeC || 0)) / 100;
     const gradeDPct = Math.min(100, Math.max(0, item.gradeD || 0)) / 100;
     const gradeFPct = Math.min(100, Math.max(0, item.gradeF || 0)) / 100;
+    const gradeTotal = gradeCPct + gradeDPct + gradeFPct;
+    const gradeScale = gradeTotal > 1 ? 1 / gradeTotal : 1; // scale down if over 100%
 
     // Grade deduction reduces max buy: portion of line × configured deduction rate × gross revenue
     const gradeDeductAmt = grossRevenue * (
-      gradeCPct * deductRateC +
-      gradeDPct * deductRateD +
-      gradeFPct * deductRateF
+      (gradeCPct * gradeScale) * deductRateC +
+      (gradeDPct * gradeScale) * deductRateD +
+      (gradeFPct * gradeScale) * deductRateF
     );
 
     const netRevenue = grossRevenue; // sell price unaffected
