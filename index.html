@@ -1140,15 +1140,24 @@ function recalc() {
     const maxBuyCostEach = qty > 0 ? maxBuyCostTotal / qty : 0;
     const maxBuyCostTotalClamped = Math.max(0, maxBuyCostTotal);
 
-    // Total Sell = gross minus deductions
+    // Total Sell = gross, deduction lines, net
     const sellCell = document.getElementById(`totalsell-${item.id}`);
     if (sellCell) {
       if (item.salePrice <= 0 || qty <= 0) {
         sellCell.className = 'calc-cell zero';
         sellCell.innerHTML = '<span>—</span><span class="calc-tag">auto</span>';
       } else {
+        const totalDeduct = gradeDeductAmt + missingDeductAmt;
         sellCell.className = 'calc-cell';
-        sellCell.innerHTML = `<span style="color:var(--blue)">${fmt(netRevenue)}</span><span class="calc-tag">auto</span>`;
+        sellCell.style.flexDirection = 'column';
+        sellCell.style.alignItems = 'flex-start';
+        sellCell.style.gap = '2px';
+        sellCell.style.padding = '5px 10px';
+        let html = `<span style="color:var(--blue);font-weight:700;">${fmt(grossRevenue)}</span>`;
+        if (gradeDeductAmt > 0) html += `<span style="color:var(--danger);font-size:10px;">− ${fmt(gradeDeductAmt)} grade</span>`;
+        if (missingDeductAmt > 0) html += `<span style="color:var(--danger);font-size:10px;">− ${fmt(missingDeductAmt)} missing</span>`;
+        if (totalDeduct > 0) html += `<span style="color:var(--text-muted);font-size:10px;border-top:1px solid var(--border);padding-top:2px;margin-top:1px;width:100%;">= ${fmt(netRevenue)} net</span>`;
+        sellCell.innerHTML = html;
       }
     }
 
