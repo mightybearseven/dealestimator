@@ -607,6 +607,15 @@
           </tr>
         </thead>
         <tbody id="itemsBody"></tbody>
+        <tfoot id="itemsFoot" style="display:none;">
+          <tr style="border-top:2px solid var(--border2); background:var(--surface2);">
+            <td style="padding:7px 10px; font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted);">Total</td>
+            <td style="padding:7px 6px;"><span id="footQty" style="font-family:var(--mono); font-size:13px; font-weight:700; color:var(--text);"></span></td>
+            <td style="padding:7px 6px;"><span id="footRevenue" style="font-family:var(--mono); font-size:12px; font-weight:600; color:var(--blue);"></span></td>
+            <td style="padding:7px 6px;"><span id="footMaxBuy" style="font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent);"></span></td>
+            <td colspan="3"></td>
+          </tr>
+        </tfoot>
       </table>
       <button class="add-item-btn" onclick="addItem()">+ Add Line Item</button>
       <div id="pasteZone" class="paste-zone" 
@@ -1114,13 +1123,23 @@ function renderResults(d) {
   const empty = document.getElementById('emptyState');
   const content = document.getElementById('resultsContent');
 
+  const foot = document.getElementById('itemsFoot');
   if (items.length === 0) {
     empty.style.display = 'block';
     content.style.display = 'none';
+    if (foot) foot.style.display = 'none';
     return;
   }
   empty.style.display = 'none';
   content.style.display = 'flex';
+
+  // Update table footer totals
+  if (foot) {
+    foot.style.display = '';
+    document.getElementById('footQty').textContent = d.totalUnits + ' units';
+    document.getElementById('footRevenue').textContent = fmt(d.totalRevenue);
+    document.getElementById('footMaxBuy').textContent = fmt(d.totalBuyCost);
+  }
 
   // Net Profit block
   const profitBlock = document.getElementById('profitBlock');
