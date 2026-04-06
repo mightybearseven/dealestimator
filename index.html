@@ -676,13 +676,13 @@
     </div>
 
     <!-- GRADING DEDUCTIONS -->
-    <div class="section-label">Chargebacks to Seller</div>
+    <div class="section-label">Deductions &amp; Costs We Eat</div>
     <div class="deductions-grid">
       <!-- Grading -->
       <div class="deduct-group">
         <div class="deduct-group-title">
           Grade Chargebacks
-          <span class="deduct-tag pct">% of buy cost</span>
+          <span class="deduct-tag pct">% of sale price</span>
         </div>
         <!-- Column headers -->
         <div class="deduct-row" style="padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:6px;">
@@ -1052,20 +1052,22 @@ function recalc() {
     const qty = Math.max(0, item.qty || 0);
     const rawRevenue = item.salePrice * qty;
 
-    // Net revenue = full sale price — deductions are charged back to seller, not lost revenue
+    // Net revenue = full sale price
     const netRevenue = rawRevenue;
 
-    // Grade deduction $ — applied against max buy cost (charged back to seller)
+    // Grade deduction — buyer eats this cost, reduces max buy
     const gradeDeductAmt = rawRevenue * blendedGradePct;
 
-    // Missing deduction $ — applied against max buy cost (charged back to seller)
+    // Missing component deduction — buyer eats this cost, reduces max buy
     const missingDeductAmt = blendedMissingPerUnit * qty;
 
+    // Platform fee — buyer eats this
     const platformCut = netRevenue * platformFee;
+    // Shipping — buyer eats this, split proportionally across lot
     const shippingShare = totalUnits > 0 ? (shippingCost * qty / totalUnits) : 0;
 
-    // Max Buy Cost: revenue target minus operating costs minus chargebacks to seller
-    // netRevenue*(1-margin) - processing - shipping - platform - gradeDeduct - missingDeduct
+    // Max Buy Cost: what's left after pulling out target margin + all costs we eat
+    // = Revenue × (1 − margin) − processing − shipping − platform − grade deduct − missing deduct
     const maxBuyCostTotal = (netRevenue * (1 - targetMargin))
       - (processingCost * qty)
       - shippingShare
@@ -1129,9 +1131,12 @@ function recalc() {
     return { item, qty, rawRevenue, netRevenue, gradeDeductAmt, missingDeductAmt, buyCostTotal: Math.max(0, maxBuyCostTotal), itemProfit, maxBuyCostEach, blendedGradePct, blendedMissingPerUnit };
   });
 
-  // Net revenue = gross (deductions are chargebacks, not revenue reductions)
+  // Net profit: revenue minus max buy cost minus all costs buyer eats
+  // (grade/missing deducts + processing + shipping + platform are all already factored into max buy,
+  //  so net profit at target margin = revenue * targetMargin when max buy is used exactly)
   const netRevenue = totalRevenue;
-  const netProfit  = netRevenue - totalMaxBuyCost - totalGradeDeduct - totalMissingDeduct - totalProcessing - shippingCost - totalPlatformFee;
+  const totalAllCosts = totalGradeDeduct + totalMissingDeduct + totalProcessing + shippingCost + totalPlatformFee;
+  const netProfit  = netRevenue - totalMaxBuyCost - totalAllCosts;
   const actualMargin = netRevenue > 0 ? netProfit / netRevenue : 0;
 
   renderResults({ netProfit, actualMargin, targetMargin, totalRevenue, netRevenue,
@@ -1185,7 +1190,7 @@ function renderResults(d) {
   const cogSub = document.getElementById('cogSub');
   cogVal.textContent = fmt(totalCOG);
   const cogPerUnit = d.totalUnits > 0 ? totalCOG / d.totalUnits : 0;
-  cogSub.textContent = `${fmt(cogPerUnit)}/unit avg · buy cost + shipping + platform fee`;
+  cogSub.textContent = `${fmt(cogPerUnit)}/unit avg · buy cost + all costs we eat`;
 
   // Gross Revenue block
   const grossRevenueVal = document.getElementById('grossRevenueVal');
@@ -1219,14 +1224,14 @@ function renderResults(d) {
 
   // Breakdown
   const breakdown = [
-    { label: 'Gross Sale Revenue',                                          val: d.totalRevenue,          cls: 'pos' },
-    { label: 'Processing Cost',                                             val: -d.totalProcessing,      cls: 'neg' },
-    { label: 'Shipping Cost',                                               val: -d.shippingCost,         cls: 'neg' },
-    { label: 'Platform Fee',                                                val: -d.totalPlatformFee,     cls: 'neg' },
-    { label: `Grade Chargeback (blended ${(d.blendedGradePct*100).toFixed(1)}% of revenue)`, val: -d.totalGradeDeduct,  cls: 'neg' },
-    { label: `Missing Parts Chargeback (blended ${fmt(d.blendedMissingPerUnit)}/unit)`,      val: -d.totalMissingDeduct, cls: 'neg' },
-    { label: 'Max Buy / Acquisition Cost',                                  val: -d.totalBuyCost,         cls: 'neg' },
-    { label: 'Net Profit',                                                  val: d.netProfit,             cls: d.netProfit >= 0 ? 'pos' : 'neg', bold: true },
+    { label: 'Gross Sale Revenue',                                                        val: d.totalRevenue,          cls: 'pos' },
+    { label: 'Less: Processing Cost (we eat)',                                            val: -d.totalProcessing,      cls: 'neg' },
+    { label: 'Less: Shipping Cost (we eat)',                                              val: -d.shippingCost,         cls: 'neg' },
+    { label: 'Less: Platform Fee (we eat)',                                               val: -d.totalPlatformFee,     cls: 'neg' },
+    { label: `Less: Grade Deduction (blended ${(d.blendedGradePct*100).toFixed(1)}%)`,   val: -d.totalGradeDeduct,     cls: 'neg' },
+    { label: `Less: Missing Parts Deduction (${fmt(d.blendedMissingPerUnit)}/unit)`,     val: -d.totalMissingDeduct,   cls: 'neg' },
+    { label: 'Less: Max Buy / Acquisition Cost',                                          val: -d.totalBuyCost,         cls: 'neg' },
+    { label: 'Net Profit',                                                                val: d.netProfit,             cls: d.netProfit >= 0 ? 'pos' : 'neg', bold: true },
   ];
 
   document.getElementById('breakdownList').innerHTML = breakdown.map(row => `
