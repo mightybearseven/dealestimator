@@ -880,7 +880,7 @@ const COLUMNS = [
   { id: 'qty',       label: 'Qty',            width: '60px',  draggable: true },
   { id: 'salePrice', label: 'Sale Price (ea)',width: '110px', draggable: true },
   { id: 'totalsell', label: 'Total Sell ↗',  width: '110px', draggable: true },
-  { id: 'maxbuy',    label: 'Max Buy (ea) ↗',width: '115px', draggable: true },
+  { id: 'maxbuy',    label: 'Max Buy (ea) ↗', width: '115px', draggable: true },
   { id: 'totalbuy',  label: 'Total Buy ↗',   width: '110px', draggable: true },
   { id: 'failPct',   label: 'Failure %',      width: '85px',  draggable: true },
   { id: '_del',      label: '',               width: '36px',  draggable: false },
@@ -896,6 +896,9 @@ function renderHeader() {
     const th = document.createElement('th');
     th.style.width = col.width;
     th.textContent = col.label;
+    if (col.id === 'maxbuy' || col.id === 'totalbuy') {
+      th.title = 'Based on Net Revenue × (1 − Target Margin). Operating costs (processing, shipping, platform fee) are tracked separately.';
+    }
     if (col.draggable) {
       th.draggable = true;
       th.dataset.col = colId;
@@ -1160,7 +1163,7 @@ function renderResults(d) {
   const cogSub = document.getElementById('cogSub');
   cogVal.textContent = fmt(d.totalBuyCost);
   const cogPerUnit = d.totalUnits > 0 ? d.totalBuyCost / d.totalUnits : 0;
-  cogSub.textContent = `${fmt(cogPerUnit)}/unit avg · acquisition cost only`;
+  cogSub.textContent = `${fmt(cogPerUnit)}/unit avg · acquisition only — see Operating Costs below`;
 
   // Operating costs card
   const platformFeePct = d.totalNetRevenue > 0 ? (d.totalPlatformFee / d.totalNetRevenue * 100).toFixed(1) : '0.0';
