@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- saved from url=(0045)file:///Users/kbroholm/Downloads/index_3.html -->
-<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
+<html lang="en">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Profit Estimator</title>
-<link href="./Profit Estimator_files/css2" rel="stylesheet">
-<script src="./Profit Estimator_files/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root {
     --bg: #f4f6f9;
@@ -612,11 +612,18 @@
         <tfoot id="itemsFoot" style="display:none;"><tr></tr></tfoot>
       </table>
       <button class="add-item-btn" onclick="addItem()">+ Add Line Item</button>
-      <div id="pasteZone" class="paste-zone" ondragover="event.preventDefault();this.classList.add(&#39;drag-over&#39;)" ondragleave="this.classList.remove(&#39;drag-over&#39;)" ondrop="event.preventDefault();this.classList.remove(&#39;drag-over&#39;);handlePaste(event.dataTransfer.getData(&#39;text&#39;))" onclick="document.getElementById(&#39;pasteInput&#39;).focus()">
+      <div id="pasteZone" class="paste-zone" 
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="event.preventDefault();this.classList.remove('drag-over');handlePaste(event.dataTransfer.getData('text'))"
+           onclick="document.getElementById('pasteInput').focus()">
         <div class="paste-zone-icon">⎘</div>
         <div class="paste-zone-text">Paste rows from Excel</div>
         <div class="paste-zone-sub">Part Number · Qty · Sale Price — click here then Ctrl+V</div>
-        <textarea id="pasteInput" class="paste-textarea" placeholder="Paste Excel rows here (Part Number	Qty	Sale Price)..." onpaste="setTimeout(()=&gt;{handlePaste(this.value);this.value=&#39;&#39;},0)" onkeydown="if(event.key===&#39;Escape&#39;)this.blur()"></textarea>
+        <textarea id="pasteInput" class="paste-textarea" 
+          placeholder="Paste Excel rows here (Part Number&#9;Qty&#9;Sale Price)..."
+          onpaste="setTimeout(()=>{handlePaste(this.value);this.value=''},0)"
+          onkeydown="if(event.key==='Escape')this.blur()"></textarea>
       </div>
     </div>
 
@@ -1253,8 +1260,8 @@ function renderResults(d) {
   content.style.display = 'flex';
 
   // Cost config totals bar
-  const bar = document.getElementById('costTotalsBar');
-  bar.style.display = 'flex';
+  const costBar = document.getElementById('costTotalsBar');
+  costBar.style.display = 'flex';
   const platformFeeAmt = d.totalPlatformFee;
   const platformFeePct = d.totalNetRevenue > 0 ? platformFeeAmt / d.totalNetRevenue * 100 : 0;
   document.getElementById('ctProcessing').textContent   = fmt(d.totalProcessing);
@@ -1633,6 +1640,5 @@ function exportXLSX() {
 renderHeader();
 addItem();
 </script>
-
-
-</body></html>
+</body>
+</html>
