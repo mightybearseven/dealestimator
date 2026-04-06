@@ -1082,7 +1082,10 @@ function renderItems() {
           <span style="font-family:var(--mono);font-size:11px;color:${color};">%</span>
         </div>`;
       } else if (colId === '_del') {
-        td.innerHTML = `<button class="del-btn" onclick="removeItem(${item.id})">×</button>`;
+        td.innerHTML = `<div style="display:flex;align-items:center;gap:4px;">
+          <span id="gradewarning-${item.id}" style="display:none;font-family:var(--mono);font-size:9px;font-weight:700;color:var(--danger);background:var(--danger-dim);border:1px solid var(--danger);border-radius:3px;padding:2px 4px;white-space:nowrap;" title="C+D+F exceeds 100%">!&gt;100%</span>
+          <button class="del-btn" onclick="removeItem(${item.id})">×</button>
+        </div>`;
       }
       tr.appendChild(td);
     });
@@ -1130,6 +1133,10 @@ function recalc() {
     const dPct   = gradeDPct * scale;
     const fPct   = gradeFPct * scale;
     const effectiveABPct = Math.max(0, 1 - cPct - dPct - fPct);
+
+    // Show/hide over-100% warning
+    const gradeWarn = document.getElementById(`gradewarning-${item.id}`);
+    if (gradeWarn) gradeWarn.style.display = (gradeCPct + gradeDPct + gradeFPct) > 1 ? 'inline-block' : 'none';
 
     // Max buy per unit = salePrice × (1 - deductRate) × (1 - targetMargin)
     // A/B has 0% deduction (baseline grade)
