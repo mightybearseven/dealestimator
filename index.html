@@ -659,6 +659,29 @@
         </div>
       </div>
     </div>
+    <!-- Cost config totals -->
+    <div id="costTotalsBar" style="display:none; margin-top:-16px; margin-bottom:28px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 16px; display:flex; gap:0; font-family:var(--mono);">
+      <div style="flex:1; border-right:1px solid var(--border); padding-right:16px; margin-right:16px;">
+        <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:4px;">Total Processing</div>
+        <div id="ctProcessing" style="font-size:14px; font-weight:700; color:var(--text);">—</div>
+        <div id="ctProcessingSub" style="font-size:10px; color:var(--text-muted); margin-top:2px;"></div>
+      </div>
+      <div style="flex:1; border-right:1px solid var(--border); padding-right:16px; margin-right:16px;">
+        <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:4px;">Shipping</div>
+        <div id="ctShipping" style="font-size:14px; font-weight:700; color:var(--text);">—</div>
+        <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">flat lot cost</div>
+      </div>
+      <div style="flex:1; border-right:1px solid var(--border); padding-right:16px; margin-right:16px;">
+        <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:4px;">Platform Fee</div>
+        <div id="ctPlatform" style="font-size:14px; font-weight:700; color:var(--text);">—</div>
+        <div id="ctPlatformSub" style="font-size:10px; color:var(--text-muted); margin-top:2px;"></div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:4px;">Total Operating Costs</div>
+        <div id="ctTotal" style="font-size:14px; font-weight:700; color:var(--danger);">—</div>
+        <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">excl. acquisition</div>
+      </div>
+    </div>
 
     <!-- GRADING DEDUCTIONS -->
     <div class="section-label">Deductions &amp; Costs We Eat</div>
@@ -1230,10 +1253,23 @@ function renderResults(d) {
     empty.style.display = 'block';
     content.style.display = 'none';
     renderFooter(false);
+    document.getElementById('costTotalsBar').style.display = 'none';
     return;
   }
   empty.style.display = 'none';
   content.style.display = 'flex';
+
+  // Cost config totals bar
+  const bar = document.getElementById('costTotalsBar');
+  bar.style.display = 'flex';
+  const platformFeeAmt = d.totalPlatformFee;
+  const platformFeePct = d.totalNetRevenue > 0 ? platformFeeAmt / d.totalNetRevenue * 100 : 0;
+  document.getElementById('ctProcessing').textContent   = fmt(d.totalProcessing);
+  document.getElementById('ctProcessingSub').textContent = `$${Math.round(d.totalProcessing / Math.max(1, d.totalUnits))}/unit × ${d.totalUnits} units`;
+  document.getElementById('ctShipping').textContent     = fmt(d.shippingCost);
+  document.getElementById('ctPlatform').textContent     = fmt(platformFeeAmt);
+  document.getElementById('ctPlatformSub').textContent  = `${fmtPct(platformFeePct)} of net revenue`;
+  document.getElementById('ctTotal').textContent        = fmt(d.totalProcessing + d.shippingCost + platformFeeAmt);
 
   // Rebuild footer in correct column order then populate
   renderFooter(true);
