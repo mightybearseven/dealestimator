@@ -659,29 +659,6 @@
         </div>
       </div>
     </div>
-    <!-- Cost config totals -->
-    <div id="costTotalsBar" style="display:none; margin-top:-16px; margin-bottom:28px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 16px; gap:0; font-family:var(--mono);">
-      <div style="flex:1; border-right:1px solid var(--border); padding-right:16px; margin-right:16px;">
-        <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:4px;">Total Processing</div>
-        <div id="ctProcessing" style="font-size:14px; font-weight:700; color:var(--text);">—</div>
-        <div id="ctProcessingSub" style="font-size:10px; color:var(--text-muted); margin-top:2px;"></div>
-      </div>
-      <div style="flex:1; border-right:1px solid var(--border); padding-right:16px; margin-right:16px;">
-        <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:4px;">Shipping</div>
-        <div id="ctShipping" style="font-size:14px; font-weight:700; color:var(--text);">—</div>
-        <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">flat lot cost</div>
-      </div>
-      <div style="flex:1; border-right:1px solid var(--border); padding-right:16px; margin-right:16px;">
-        <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:4px;">Platform Fee</div>
-        <div id="ctPlatform" style="font-size:14px; font-weight:700; color:var(--text);">—</div>
-        <div id="ctPlatformSub" style="font-size:10px; color:var(--text-muted); margin-top:2px;"></div>
-      </div>
-      <div style="flex:1;">
-        <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:4px;">Total Operating Costs</div>
-        <div id="ctTotal" style="font-size:14px; font-weight:700; color:var(--danger);">—</div>
-        <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">excl. acquisition</div>
-      </div>
-    </div>
 
     <!-- GRADING DEDUCTIONS -->
     <div class="section-label">Deductions &amp; Costs We Eat</div>
@@ -831,6 +808,12 @@
         <div class="result-label">Estimated Cost of Goods</div>
         <div class="result-value" id="cogVal" style="color:var(--warn)">—</div>
         <div class="result-sub" id="cogSub"></div>
+      </div>
+
+      <!-- Operating Costs -->
+      <div class="result-block" id="opCostBlock">
+        <div class="result-label">Operating Costs</div>
+        <div style="display:flex; flex-direction:column; gap:6px; margin-top:6px;" id="opCostList"></div>
       </div>
 
       <!-- Net Sale Revenue -->
@@ -1163,16 +1146,9 @@ function recalc() {
     const missingDeductAmt = blendedMissingPerUnit * qty;
     const netRevenue = grossRevenue - gradeDeductAmt - missingDeductAmt;
 
-    // Operating costs we eat, applied against net revenue
-    const platformCut = netRevenue * platformFee;
-    const shippingShare = totalUnits > 0 ? (shippingCost * qty / totalUnits) : 0;
-
-    // Max Buy: back-calculated from net revenue after all costs
-    // = netRevenue × (1 − margin) − processing − shipping − platform
-    const maxBuyCostTotal = (netRevenue * (1 - targetMargin))
-      - (processingCost * qty)
-      - shippingShare
-      - platformCut;
+    // Max Buy: back-calculated from net revenue and target margin only
+    // processing, shipping, platform are tracked separately and not in grid math
+    const maxBuyCostTotal = netRevenue * (1 - targetMargin);
     const maxBuyCostEach = qty > 0 ? maxBuyCostTotal / qty : 0;
     const maxBuyCostTotalClamped = Math.max(0, maxBuyCostTotal);
 
@@ -1219,21 +1195,21 @@ function recalc() {
       }
     }
 
-    const itemProfit = netRevenue - maxBuyCostTotalClamped - (processingCost * qty) - shippingShare - platformCut;
-
+    // Operating costs tracked at lot level for the separate card
     totalRevenue      += grossRevenue;
     totalMaxBuyCost   += maxBuyCostTotalClamped;
     totalGradeDeduct  += gradeDeductAmt;
     totalMissingDeduct += missingDeductAmt;
     totalProcessing   += processingCost * qty;
-    totalPlatformFee  += platformCut;
+    totalPlatformFee  += netRevenue * platformFee;
 
-    return { item, qty, grossRevenue, netRevenue, gradeDeductAmt, missingDeductAmt, buyCostTotal: maxBuyCostTotalClamped, itemProfit, maxBuyCostEach, blendedGradePct, blendedMissingPerUnit };
+    return { item, qty, grossRevenue, netRevenue, gradeDeductAmt, missingDeductAmt, buyCostTotal: maxBuyCostTotalClamped, maxBuyCostEach, blendedGradePct, blendedMissingPerUnit };
   });
 
   const totalGrossRevenue = totalRevenue;
   const totalNetRevenue   = totalGrossRevenue - totalGradeDeduct - totalMissingDeduct;
-  const netProfit  = totalNetRevenue - totalMaxBuyCost - totalProcessing - shippingCost - totalPlatformFee;
+  const totalOperating    = totalProcessing + shippingCost + totalPlatformFee;
+  const netProfit  = totalNetRevenue - totalMaxBuyCost - totalOperating;
   const actualMargin = totalNetRevenue > 0 ? netProfit / totalNetRevenue : 0;
 
   renderResults({ netProfit, actualMargin, targetMargin, totalRevenue: totalGrossRevenue, totalNetRevenue,
@@ -1258,23 +1234,10 @@ function renderResults(d) {
     empty.style.display = 'block';
     content.style.display = 'none';
     renderFooter(false, null);
-    document.getElementById('costTotalsBar').style.display = 'none';
     return;
   }
   empty.style.display = 'none';
   content.style.display = 'flex';
-
-  // Cost config totals bar
-  const costBar = document.getElementById('costTotalsBar');
-  costBar.style.display = 'flex';
-  const platformFeeAmt = d.totalPlatformFee;
-  const platformFeePct = d.totalNetRevenue > 0 ? platformFeeAmt / d.totalNetRevenue * 100 : 0;
-  document.getElementById('ctProcessing').textContent   = fmt(d.totalProcessing);
-  document.getElementById('ctProcessingSub').textContent = `$${Math.round(d.totalProcessing / Math.max(1, d.totalUnits))}/unit × ${d.totalUnits} units`;
-  document.getElementById('ctShipping').textContent     = fmt(d.shippingCost);
-  document.getElementById('ctPlatform').textContent     = fmt(platformFeeAmt);
-  document.getElementById('ctPlatformSub').textContent  = `${fmtPct(platformFeePct)} of net revenue`;
-  document.getElementById('ctTotal').textContent        = fmt(d.totalProcessing + d.shippingCost + platformFeeAmt);
 
   // Rebuild footer in correct column order then populate
   renderFooter(true, { totalGradeDeduct: d.totalGradeDeduct, totalMissingDeduct: d.totalMissingDeduct });
@@ -1295,13 +1258,35 @@ function renderResults(d) {
   profitSub.textContent = `${d.totalUnits} unit${d.totalUnits!==1?'s':''}${profitMarginLabel}`;
   profitBlock.className = 'result-block ' + (d.netProfit > 0 ? 'highlight' : d.netProfit < 0 ? 'highlight-danger' : '');
 
-  // COG block — buy cost + operating costs we eat
-  const totalCOG = d.totalBuyCost + d.totalProcessing + d.shippingCost + d.totalPlatformFee;
+  // COG block — acquisition/buy cost only
   const cogVal = document.getElementById('cogVal');
   const cogSub = document.getElementById('cogSub');
-  cogVal.textContent = fmt(totalCOG);
-  const cogPerUnit = d.totalUnits > 0 ? totalCOG / d.totalUnits : 0;
-  cogSub.textContent = `${fmt(cogPerUnit)}/unit avg · buy + processing + shipping + platform`;
+  cogVal.textContent = fmt(d.totalBuyCost);
+  const cogPerUnit = d.totalUnits > 0 ? d.totalBuyCost / d.totalUnits : 0;
+  cogSub.textContent = `${fmt(cogPerUnit)}/unit avg · acquisition cost only`;
+
+  // Operating costs card
+  const platformFeePct = d.totalNetRevenue > 0 ? (d.totalPlatformFee / d.totalNetRevenue * 100).toFixed(1) : '0.0';
+  const opRows = [
+    { label: 'Processing', val: d.totalProcessing, sub: `$${Math.round(d.totalProcessing / Math.max(1, d.totalUnits))}/unit × ${d.totalUnits} units` },
+    { label: 'Shipping',   val: d.shippingCost,    sub: 'flat lot cost' },
+    { label: 'Platform Fee', val: d.totalPlatformFee, sub: `${platformFeePct}% of net revenue` },
+  ];
+  const totalOp = d.totalProcessing + d.shippingCost + d.totalPlatformFee;
+  document.getElementById('opCostList').innerHTML = opRows.map(r => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);">${r.label}</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text-muted);">${r.sub}</div>
+      </div>
+      <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--warn);">${fmt(r.val)}</div>
+    </div>
+  `).join('') + `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;">
+      <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text-dim);">Total Operating</div>
+      <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--danger);">${fmt(totalOp)}</div>
+    </div>
+  `;
 
   // Gross Revenue block — show gross with deduction breakdown in sub
   const grossRevenueVal = document.getElementById('grossRevenueVal');
@@ -1341,10 +1326,8 @@ function renderResults(d) {
     { label: `Less: Grade Deduction (blended ${(d.blendedGradePct*100).toFixed(1)}%)`,   val: -d.totalGradeDeduct,     cls: 'neg' },
     { label: `Less: Missing Parts Deduction (${fmt(d.blendedMissingPerUnit)}/unit)`,     val: -d.totalMissingDeduct,   cls: 'neg' },
     { label: '= Net Sale Revenue',                                                        val: d.totalNetRevenue,       cls: 'pos', bold: false, dim: true },
-    { label: 'Less: Processing Cost (we eat)',                                            val: -d.totalProcessing,      cls: 'neg' },
-    { label: 'Less: Shipping Cost (we eat)',                                              val: -d.shippingCost,         cls: 'neg' },
-    { label: 'Less: Platform Fee (we eat)',                                               val: -d.totalPlatformFee,     cls: 'neg' },
-    { label: 'Less: Max Buy / Acquisition Cost',                                          val: -d.totalBuyCost,         cls: 'neg' },
+    { label: 'Less: Acquisition Cost',                                                    val: -d.totalBuyCost,         cls: 'neg' },
+    { label: 'Less: Operating Costs',                                                     val: -(d.totalProcessing + d.shippingCost + d.totalPlatformFee), cls: 'neg' },
     { label: 'Net Profit',                                                                val: d.netProfit,             cls: d.netProfit >= 0 ? 'pos' : 'neg', bold: true },
   ];
 
