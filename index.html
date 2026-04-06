@@ -1011,30 +1011,43 @@ function renderHeader() {
   });
 }
 
-function renderFooter(show) {
+function renderFooter(show, deductData) {
   const foot = document.getElementById('itemsFoot');
-  const tr = foot.querySelector('tr');
   foot.style.display = show ? '' : 'none';
-  if (!show) return;
-  tr.style.borderTop = '2px solid var(--border2)';
-  tr.style.background = 'var(--surface2)';
-  tr.innerHTML = '';
-  columnOrder.forEach(colId => {
-    const td = document.createElement('td');
-    td.style.padding = '7px 6px';
-    if (colId === 'pn') {
-      td.style.fontFamily = 'var(--mono)'; td.style.fontSize = '10px'; td.style.fontWeight = '600';
-      td.style.letterSpacing = '0.1em'; td.style.textTransform = 'uppercase'; td.style.color = 'var(--text-muted)';
-      td.textContent = 'Totals';
-    } else if (colId === 'qty') {
-      td.innerHTML = `<span id="footQty" style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);"></span>`;
-    } else if (colId === 'totalsell') {
-      td.innerHTML = `<span style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);display:block;">Total Sell</span><span id="footRevenue" style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--blue);"></span>`;
-    } else if (colId === 'totalbuy') {
-      td.innerHTML = `<span style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);display:block;">Total Buy</span><span id="footMaxBuy" style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);"></span>`;
-    }
-    tr.appendChild(td);
+  if (!show) { foot.innerHTML = '<tr></tr>'; return; }
+
+  const colCount = columnOrder.length;
+
+  // Build deductions row (only if there are deductions)
+  const hasDeductions = deductData && (deductData.totalGradeDeduct > 0 || deductData.totalMissingDeduct > 0);
+  let deductRowHTML = '';
+  if (hasDeductions) {
+    const totalDeduct = deductData.totalGradeDeduct + deductData.totalMissingDeduct;
+    // Find index of totalsell column to know where to put the deduction detail
+    const sellIdx = columnOrder.indexOf('totalsell');
+    let cells = columnOrder.map((colId, i) => {
+      if (i === 0) return `<td style="padding:5px 10px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--warn);">Deductions</td>`;
+      if (colId === 'totalsell') return `<td style="padding:5px 6px;">
+        ${deductData.totalGradeDeduct > 0 ? `<div style="font-family:var(--mono);font-size:11px;color:var(--danger);">− ${fmt(deductData.totalGradeDeduct)} <span style="color:var(--text-muted);font-size:10px;">grade</span></div>` : ''}
+        ${deductData.totalMissingDeduct > 0 ? `<div style="font-family:var(--mono);font-size:11px;color:var(--danger);">− ${fmt(deductData.totalMissingDeduct)} <span style="color:var(--text-muted);font-size:10px;">missing</span></div>` : ''}
+        <div style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--danger);border-top:1px solid var(--border);margin-top:3px;padding-top:3px;">= − ${fmt(totalDeduct)} total</div>
+      </td>`;
+      return `<td></td>`;
+    });
+    deductRowHTML = `<tr style="background:rgba(220,38,38,0.04);border-top:1px solid var(--border);">${cells.join('')}</tr>`;
+  }
+
+  // Build totals row
+  const totalsCells = columnOrder.map(colId => {
+    if (colId === 'pn') return `<td style="padding:7px 10px;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);">Totals</td>`;
+    if (colId === 'qty') return `<td style="padding:7px 6px;"><span id="footQty" style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text);"></span></td>`;
+    if (colId === 'totalsell') return `<td style="padding:7px 6px;"><span style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);display:block;">Net Sell</span><span id="footRevenue" style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--blue);"></span></td>`;
+    if (colId === 'totalbuy') return `<td style="padding:7px 6px;"><span style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);display:block;">Total Buy</span><span id="footMaxBuy" style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);"></span></td>`;
+    return `<td></td>`;
   });
+  const totalsRowHTML = `<tr style="border-top:2px solid var(--border2);background:var(--surface2);">${totalsCells.join('')}</tr>`;
+
+  foot.innerHTML = deductRowHTML + totalsRowHTML;
 }
 
 function renderItems() {
@@ -1163,24 +1176,16 @@ function recalc() {
     const maxBuyCostEach = qty > 0 ? maxBuyCostTotal / qty : 0;
     const maxBuyCostTotalClamped = Math.max(0, maxBuyCostTotal);
 
-    // Total Sell = gross, deduction lines, net
+    // Total Sell = net revenue (after deductions)
     const sellCell = document.getElementById(`totalsell-${item.id}`);
     if (sellCell) {
       if (item.salePrice <= 0 || qty <= 0) {
         sellCell.className = 'calc-cell zero';
         sellCell.innerHTML = '<span>—</span><span class="calc-tag">auto</span>';
       } else {
-        const totalDeduct = gradeDeductAmt + missingDeductAmt;
         sellCell.className = 'calc-cell';
-        sellCell.style.flexDirection = 'column';
-        sellCell.style.alignItems = 'flex-start';
-        sellCell.style.gap = '2px';
-        sellCell.style.padding = '5px 10px';
-        let html = `<span style="color:var(--blue);font-weight:700;">${fmt(grossRevenue)}</span>`;
-        if (gradeDeductAmt > 0) html += `<span style="color:var(--danger);font-size:10px;">− ${fmt(gradeDeductAmt)} grade</span>`;
-        if (missingDeductAmt > 0) html += `<span style="color:var(--danger);font-size:10px;">− ${fmt(missingDeductAmt)} missing</span>`;
-        if (totalDeduct > 0) html += `<span style="color:var(--text-muted);font-size:10px;border-top:1px solid var(--border);padding-top:2px;margin-top:1px;width:100%;">= ${fmt(netRevenue)} net</span>`;
-        sellCell.innerHTML = html;
+        sellCell.style.cssText = '';
+        sellCell.innerHTML = `<span style="color:var(--blue);font-weight:700;">${fmt(netRevenue)}</span><span class="calc-tag">auto</span>`;
       }
     }
 
@@ -1252,7 +1257,7 @@ function renderResults(d) {
   if (items.length === 0) {
     empty.style.display = 'block';
     content.style.display = 'none';
-    renderFooter(false);
+    renderFooter(false, null);
     document.getElementById('costTotalsBar').style.display = 'none';
     return;
   }
@@ -1272,7 +1277,7 @@ function renderResults(d) {
   document.getElementById('ctTotal').textContent        = fmt(d.totalProcessing + d.shippingCost + platformFeeAmt);
 
   // Rebuild footer in correct column order then populate
-  renderFooter(true);
+  renderFooter(true, { totalGradeDeduct: d.totalGradeDeduct, totalMissingDeduct: d.totalMissingDeduct });
   const footQty     = document.getElementById('footQty');
   const footRevenue = document.getElementById('footRevenue');
   const footMaxBuy  = document.getElementById('footMaxBuy');
