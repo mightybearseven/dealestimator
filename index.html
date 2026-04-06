@@ -1136,9 +1136,10 @@ function recalc() {
 
 // ── Render results ─────────────────────────────────────────────────────────
 function fmt(n) {
-  const abs = Math.abs(n);
-  const str = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return (n < 0 ? '-$' : '$') + str;
+  const rounded = Math.round(n);
+  const abs = Math.abs(rounded);
+  const str = abs.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return (rounded < 0 ? '-$' : '$') + str;
 }
 function fmtPct(n) { return (n * 100).toFixed(1) + '%'; }
 
