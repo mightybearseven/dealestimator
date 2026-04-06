@@ -1,7 +1,171 @@
-.tbl-input.w100 { width: 100px; }
-.tbl-input.w120 { width: 120px; }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profit Estimator</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --surface2: #f0f2f6;
+    --border: #e2e6ed;
+    --border2: #d0d5de;
+    --accent: #00a572;
+    --accent-dim: rgba(0,165,114,0.08);
+    --accent-glow: rgba(0,165,114,0.2);
+    --warn: #d97706;
+    --warn-dim: rgba(217,119,6,0.09);
+    --danger: #dc2626;
+    --danger-dim: rgba(220,38,38,0.08);
+    --text: #111827;
+    --text-muted: #6b7280;
+    --text-dim: #374151;
+    --green: #00a572;
+    --red: #dc2626;
+    --blue: #1d4ed8;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
 
-  select.tbl-input { cursor: pointer; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* HEADER */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .logo span { color: var(--text-muted); font-weight: 400; }
+  header .tagline {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    border-left: 1px solid var(--border2);
+    padding-left: 16px;
+    margin-left: 4px;
+  }
+  .header-actions { margin-left: auto; display: flex; gap: 10px; }
+  .btn-sm {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-sm.primary {
+    background: var(--accent);
+    color: #0d0f12;
+    border-color: var(--accent);
+  }
+  .btn-sm.primary:hover { opacity: 0.85; }
+
+  /* MAIN LAYOUT */
+  .app {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    min-height: calc(100vh - 57px);
+  }
+
+  /* LEFT PANEL */
+  .left-panel {
+    padding: 28px 32px;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ITEMS TABLE */
+  .items-section { margin-bottom: 28px; }
+
+  .items-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .items-table th {
+    text-align: left;
+    padding: 8px 10px;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .items-table td { padding: 6px 6px; vertical-align: middle; }
+  .items-table tr.item-row { border-bottom: 1px solid var(--border); }
+  .items-table tr.item-row:hover td { background: rgba(255,255,255,0.015); }
+
+  .tbl-input {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 8px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .tbl-input:focus { border-color: var(--accent); }
+  .tbl-input.w80 { width: 80px; }
+  .tbl-input.w100 { width: 100px; }
+  .tbl-input.w120 { width: 120px; }
+
   .items-table th.drag-over-col {
     background: var(--accent-dim);
     border-bottom: 2px solid var(--accent);
@@ -16,74 +180,783 @@
     opacity: 0.3;
   }
 
-.calc-cell {
-background: rgba(0,165,114,0.08);
-@@ -594,37 +606,10 @@
-<!-- ITEMS -->
-<div class="items-section">
-<div class="section-label">Line Items</div>
-      <table class="items-table">
-        <thead>
-          <tr>
-            <th style="width:180px">Part Number</th>
-            <th style="width:60px">Qty</th>
-            <th style="width:110px">Sale Price (ea)</th>
-            <th style="width:120px">Total Sell ↗</th>
-            <th style="width:120px">Max Buy (ea) ↗</th>
-            <th style="width:120px">Total Buy ↗</th>
-            <th style="width:90px">Grade</th>
-            <th style="width:36px"></th>
-          </tr>
-        </thead>
+  .calc-cell {
+    background: rgba(0,165,114,0.08);
+    border: 1px solid rgba(0,165,114,0.3);
+    border-radius: 4px;
+    color: #007a52;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 10px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 110px;
+  }
+  .calc-cell.zero { color: var(--text-muted); background: var(--surface2); border-color: var(--border2); font-weight: 400; }
+  .calc-cell .calc-tag {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: rgba(0,165,114,0.5);
+    text-transform: uppercase;
+  }
+
+  .del-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 8px;
+    border-radius: 3px;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+  .del-btn:hover { color: var(--danger); background: var(--danger-dim); }
+
+  .add-item-btn {
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: 1px dashed var(--border2);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    width: 100%;
+  }
+  .add-item-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+  /* PASTE ZONE */
+  .paste-zone {
+    margin-top: 10px;
+    border: 1px dashed var(--border2);
+    border-radius: 6px;
+    padding: 14px 16px;
+    cursor: text;
+    transition: all 0.15s;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+  }
+  .paste-zone:hover, .paste-zone:focus-within {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+  .paste-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+  .paste-zone-icon {
+    font-size: 22px;
+    color: var(--text-muted);
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .paste-zone:hover .paste-zone-icon,
+  .paste-zone:focus-within .paste-zone-icon { color: var(--accent); }
+  .paste-zone-text {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+  .paste-zone:hover .paste-zone-text,
+  .paste-zone:focus-within .paste-zone-text { color: var(--accent); }
+  .paste-zone-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .paste-textarea {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: text;
+    resize: none;
+    border: none;
+    background: transparent;
+    z-index: 2;
+  }
+  .paste-feedback {
+    display: none;
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #0d0f12;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 10px 20px;
+    border-radius: 6px;
+    z-index: 999;
+    letter-spacing: 0.05em;
+    box-shadow: 0 4px 20px rgba(0,229,160,0.3);
+  }
+
+  /* COST CONFIG */
+  .config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .config-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .config-card-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .config-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .config-symbol {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--text-muted);
+    min-width: 14px;
+  }
+  .config-input {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    padding: 8px 10px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .config-input:focus { border-color: var(--accent); }
+
+  /* DEDUCTIONS */
+  .deductions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    margin-bottom: 28px;
+  }
+
+  .deduct-group { }
+  .deduct-group-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .deduct-tag {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.05em;
+  }
+  .deduct-tag.pct { background: rgba(217,119,6,0.1); color: #b45309; }
+  .deduct-tag.flat { background: rgba(0,165,114,0.1); color: #007a52; }
+
+  .deduct-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .deduct-grade {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    width: 28px;
+    text-align: center;
+    border-radius: 4px;
+    padding: 4px 0;
+  }
+  .grade-a { background: rgba(0,165,114,0.12); color: #007a52; }
+  .grade-b { background: rgba(34,197,94,0.12); color: #15803d; }
+  .grade-c { background: rgba(217,119,6,0.12); color: #b45309; }
+  .grade-d { background: rgba(234,88,12,0.12); color: #c2410c; }
+  .grade-f { background: rgba(220,38,38,0.12); color: #b91c1c; }
+
+  .deduct-name {
+    font-size: 12px;
+    color: var(--text-dim);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .deduct-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .deduct-input {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 8px;
+    width: 72px;
+    outline: none;
+    text-align: right;
+    transition: border-color 0.15s;
+  }
+  .deduct-input:focus { border-color: var(--accent); }
+  .mix-input { border-color: rgba(255,184,48,0.4); color: var(--warn); }
+  .mix-input:focus { border-color: var(--warn); }
+  .deduct-sym {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    min-width: 12px;
+  }
+
+  /* RIGHT PANEL - RESULTS */
+  .right-panel {
+    background: var(--surface);
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: sticky;
+    top: 57px;
+    height: calc(100vh - 57px);
+    overflow-y: auto;
+  }
+
+  .result-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .result-block.highlight {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, rgba(0,165,114,0.06), #ffffff);
+  }
+  .result-block.highlight-warn {
+    border-color: var(--warn);
+    background: linear-gradient(135deg, rgba(217,119,6,0.06), #ffffff);
+  }
+  .result-block.highlight-danger {
+    border-color: var(--danger);
+    background: linear-gradient(135deg, rgba(220,38,38,0.06), #ffffff);
+  }
+  .result-block.highlight-blue {
+    border-color: var(--blue);
+    background: linear-gradient(135deg, rgba(29,78,216,0.05), #ffffff);
+  }
+  .result-block.highlight-amber {
+    border-color: var(--warn);
+    background: linear-gradient(135deg, rgba(217,119,6,0.06), #ffffff);
+  }
+
+  .result-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .result-value {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .result-value.green { color: var(--accent); }
+  .result-value.red { color: var(--danger); }
+  .result-value.warn { color: var(--warn); }
+  .result-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+
+  .breakdown-list { }
+  .breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .breakdown-row:last-child { border-bottom: none; }
+  .breakdown-row .bkey { color: var(--text-muted); }
+  .breakdown-row .bval { font-weight: 600; }
+  .breakdown-row .bval.neg { color: var(--danger); }
+  .breakdown-row .bval.pos { color: var(--accent); }
+  .breakdown-row .bval.warn { color: var(--warn); }
+
+  .margin-bar-wrap {
+    margin-top: 10px;
+  }
+  .margin-bar-track {
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .margin-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s cubic-bezier(0.4,0,0.2,1), background 0.3s;
+  }
+  .margin-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .items-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .item-result-row {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    background: var(--surface2);
+  }
+  .item-result-pn { color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item-result-qty { color: var(--text-muted); margin: 0 8px; }
+  .item-result-val { font-weight: 600; }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.8;
+  }
+  .empty-icon { font-size: 36px; margin-bottom: 16px; opacity: 0.3; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Profit<span>//</span>Est</div>
+  <div class="tagline">IT Resale Margin Calculator</div>
+  <div class="header-actions">
+    <button class="btn-sm" onclick="clearAll()">Clear All</button>
+    <button class="btn-sm primary" onclick="exportXLSX()" id="exportBtn">⬇ Export Excel</button>
+  </div>
+</header>
+<div class="paste-feedback" id="pasteFeedback"></div>
+
+<div class="app">
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+
+    <!-- ITEMS -->
+    <div class="items-section">
+      <div class="section-label">Line Items</div>
       <table class="items-table" id="itemsTable">
         <thead id="itemsHead"><tr></tr></thead>
-<tbody id="itemsBody"></tbody>
-        <tfoot id="itemsFoot" style="display:none;">
-          <tr style="border-top:2px solid var(--border2); background:var(--surface2);">
-            <td style="padding:7px 10px; font-family:var(--mono); font-size:10px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted);">Totals</td>
-            <td style="padding:7px 6px;"><span id="footQty" style="font-family:var(--mono); font-size:13px; font-weight:700; color:var(--text);"></span></td>
-            <td></td>
-            <td style="padding:7px 6px;">
-              <span style="font-family:var(--mono); font-size:9px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); display:block;">Total Sell</span>
-              <span id="footRevenue" style="font-family:var(--mono); font-size:12px; font-weight:700; color:var(--blue);"></span>
-            </td>
-            <td></td>
-            <td style="padding:7px 6px;">
-              <span style="font-family:var(--mono); font-size:9px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); display:block;">Total Buy</span>
-              <span id="footMaxBuy" style="font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent);"></span>
-            </td>
-            <td colspan="2"></td>
-          </tr>
-        </tfoot>
+        <tbody id="itemsBody"></tbody>
         <tfoot id="itemsFoot" style="display:none;"><tr></tr></tfoot>
-</table>
-<button class="add-item-btn" onclick="addItem()">+ Add Line Item</button>
-<div id="pasteZone" class="paste-zone" 
-@@ -903,6 +888,7 @@
-});
+      </table>
+      <button class="add-item-btn" onclick="addItem()">+ Add Line Item</button>
+      <div id="pasteZone" class="paste-zone" 
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="event.preventDefault();this.classList.remove('drag-over');handlePaste(event.dataTransfer.getData('text'))"
+           onclick="document.getElementById('pasteInput').focus()">
+        <div class="paste-zone-icon">⎘</div>
+        <div class="paste-zone-text">Paste rows from Excel</div>
+        <div class="paste-zone-sub">Part Number · Qty · Sale Price — click here then Ctrl+V</div>
+        <textarea id="pasteInput" class="paste-textarea" 
+          placeholder="Paste Excel rows here (Part Number&#9;Qty&#9;Sale Price)..."
+          onpaste="setTimeout(()=>{handlePaste(this.value);this.value=''},0)"
+          onkeydown="if(event.key==='Escape')this.blur()"></textarea>
+      </div>
+    </div>
 
-if (added > 0) {
+    <!-- COST SETTINGS -->
+    <div class="section-label">Cost Configuration</div>
+    <div class="config-grid">
+      <div class="config-card">
+        <div class="config-card-label">Target Margin</div>
+        <div class="config-input-wrap">
+          <input class="config-input" type="number" id="targetMargin" value="20" min="0" max="100" step="1" oninput="recalc()">
+          <span class="config-symbol">%</span>
+        </div>
+      </div>
+      <div class="config-card">
+        <div class="config-card-label">Processing Cost (per unit)</div>
+        <div class="config-input-wrap">
+          <span class="config-symbol">$</span>
+          <input class="config-input" type="number" id="processingCost" value="10" min="0" step="0.01" oninput="recalc()">
+        </div>
+      </div>
+      <div class="config-card">
+        <div class="config-card-label">Shipping Cost (total lot)</div>
+        <div class="config-input-wrap">
+          <span class="config-symbol">$</span>
+          <input class="config-input" type="number" id="shippingCost" value="0" min="0" step="0.01" oninput="recalc()">
+        </div>
+      </div>
+      <div class="config-card">
+        <div class="config-card-label">Platform Fee</div>
+        <div class="config-input-wrap">
+          <input class="config-input" type="number" id="platformFee" value="0" min="0" max="100" step="0.1" oninput="recalc()">
+          <span class="config-symbol">%</span>
+        </div>
+      </div>
+    </div>
+    <!-- Cost config totals -->
+    <div id="costTotalsBar" style="display:none; margin-top:-16px; margin-bottom:28px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 16px; gap:0; font-family:var(--mono);">
+      <div style="flex:1; border-right:1px solid var(--border); padding-right:16px; margin-right:16px;">
+        <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:4px;">Total Processing</div>
+        <div id="ctProcessing" style="font-size:14px; font-weight:700; color:var(--text);">—</div>
+        <div id="ctProcessingSub" style="font-size:10px; color:var(--text-muted); margin-top:2px;"></div>
+      </div>
+      <div style="flex:1; border-right:1px solid var(--border); padding-right:16px; margin-right:16px;">
+        <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:4px;">Shipping</div>
+        <div id="ctShipping" style="font-size:14px; font-weight:700; color:var(--text);">—</div>
+        <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">flat lot cost</div>
+      </div>
+      <div style="flex:1; border-right:1px solid var(--border); padding-right:16px; margin-right:16px;">
+        <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:4px;">Platform Fee</div>
+        <div id="ctPlatform" style="font-size:14px; font-weight:700; color:var(--text);">—</div>
+        <div id="ctPlatformSub" style="font-size:10px; color:var(--text-muted); margin-top:2px;"></div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:4px;">Total Operating Costs</div>
+        <div id="ctTotal" style="font-size:14px; font-weight:700; color:var(--danger);">—</div>
+        <div style="font-size:10px; color:var(--text-muted); margin-top:2px;">excl. acquisition</div>
+      </div>
+    </div>
+
+    <!-- GRADING DEDUCTIONS -->
+    <div class="section-label">Deductions &amp; Costs We Eat</div>
+    <div class="deductions-grid">
+      <!-- Grading -->
+      <div class="deduct-group">
+        <div class="deduct-group-title">
+          Grade Chargebacks
+          <span class="deduct-tag pct">% of sale price</span>
+        </div>
+        <!-- Column headers -->
+        <div class="deduct-row" style="padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:6px;">
+          <span style="width:28px;"></span>
+          <span class="deduct-name" style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);">Grade</span>
+          <span style="font-family:var(--mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);width:88px;text-align:right;">Deduct %</span>
+          <span style="font-family:var(--mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--warn);width:88px;text-align:right;padding-right:4px;">Lot Mix %</span>
+        </div>
+        <div class="deduct-row">
+          <span class="deduct-grade grade-a" style="font-size:10px;padding:3px 0;">A/B</span>
+          <span class="deduct-name">Grade A/B</span>
+          <div class="deduct-input-wrap">
+            <input class="deduct-input" type="number" id="gradeAB" value="0" min="0" max="100" step="1" oninput="recalc()">
+            <span class="deduct-sym">%</span>
+          </div>
+          <div class="deduct-input-wrap" style="margin-left:8px;">
+            <input class="deduct-input mix-input" type="number" id="mixAB" value="100" min="0" max="100" step="1" oninput="recalc()">
+            <span class="deduct-sym">%</span>
+          </div>
+        </div>
+        <div class="deduct-row">
+          <span class="deduct-grade grade-c">C</span>
+          <span class="deduct-name">Grade C</span>
+          <div class="deduct-input-wrap">
+            <input class="deduct-input" type="number" id="gradeC" value="0" min="0" max="100" step="1" oninput="recalc()">
+            <span class="deduct-sym">%</span>
+          </div>
+          <div class="deduct-input-wrap" style="margin-left:8px;">
+            <input class="deduct-input mix-input" type="number" id="mixC" value="0" min="0" max="100" step="1" oninput="recalc()">
+            <span class="deduct-sym">%</span>
+          </div>
+        </div>
+        <div class="deduct-row">
+          <span class="deduct-grade grade-d">D</span>
+          <span class="deduct-name">Grade D</span>
+          <div class="deduct-input-wrap">
+            <input class="deduct-input" type="number" id="gradeD" value="40" min="0" max="100" step="1" oninput="recalc()">
+            <span class="deduct-sym">%</span>
+          </div>
+          <div class="deduct-input-wrap" style="margin-left:8px;">
+            <input class="deduct-input mix-input" type="number" id="mixD" value="0" min="0" max="100" step="1" oninput="recalc()">
+            <span class="deduct-sym">%</span>
+          </div>
+        </div>
+        <div class="deduct-row">
+          <span class="deduct-grade grade-f">F</span>
+          <span class="deduct-name">Grade F / Parts Only</span>
+          <div class="deduct-input-wrap">
+            <input class="deduct-input" type="number" id="gradeF" value="100" min="0" max="100" step="1" oninput="recalc()">
+            <span class="deduct-sym">%</span>
+          </div>
+          <div class="deduct-input-wrap" style="margin-left:8px;">
+            <input class="deduct-input mix-input" type="number" id="mixF" value="0" min="0" max="100" step="1" oninput="recalc()">
+            <span class="deduct-sym">%</span>
+          </div>
+        </div>
+        <!-- Mix total indicator -->
+        <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+          <span style="font-family:var(--mono);font-size:10px;color:var(--text-muted);">Lot mix total:</span>
+          <span id="mixTotal" style="font-family:var(--mono);font-size:12px;font-weight:700;">100%</span>
+          <span id="mixStatus" style="font-family:var(--mono);font-size:10px;"></span>
+        </div>
+      </div>
+
+      <!-- Missing Components -->
+      <div class="deduct-group">
+        <div class="deduct-group-title">
+          Missing Component Chargebacks
+          <span class="deduct-tag flat">$ per unit</span>
+        </div>
+        <!-- Column headers -->
+        <div class="deduct-row" style="padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:6px;">
+          <span class="deduct-name" style="font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);">Component</span>
+          <span style="font-family:var(--mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);width:88px;text-align:right;">Deduct $</span>
+          <span style="font-family:var(--mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--warn);width:88px;text-align:right;padding-right:4px;">Lot Mix %</span>
+        </div>
+        <div class="deduct-row">
+          <span class="deduct-name">HDD / SSD</span>
+          <div class="deduct-input-wrap">
+            <span class="deduct-sym">$</span>
+            <input class="deduct-input" type="number" id="missingHDD" value="25" min="0" step="1" oninput="recalc()">
+          </div>
+          <div class="deduct-input-wrap" style="margin-left:8px;">
+            <input class="deduct-input mix-input" type="number" id="mixHDD" value="0" min="0" max="100" step="1" oninput="recalc()">
+            <span class="deduct-sym">%</span>
+          </div>
+        </div>
+        <div class="deduct-row">
+          <span class="deduct-name">Memory / RAM</span>
+          <div class="deduct-input-wrap">
+            <span class="deduct-sym">$</span>
+            <input class="deduct-input" type="number" id="missingRAM" value="20" min="0" step="1" oninput="recalc()">
+          </div>
+          <div class="deduct-input-wrap" style="margin-left:8px;">
+            <input class="deduct-input mix-input" type="number" id="mixRAM" value="0" min="0" max="100" step="1" oninput="recalc()">
+            <span class="deduct-sym">%</span>
+          </div>
+        </div>
+        <div class="deduct-row">
+          <span class="deduct-name">Power Adapter</span>
+          <div class="deduct-input-wrap">
+            <span class="deduct-sym">$</span>
+            <input class="deduct-input" type="number" id="missingAdapter" value="15" min="0" step="1" oninput="recalc()">
+          </div>
+          <div class="deduct-input-wrap" style="margin-left:8px;">
+            <input class="deduct-input mix-input" type="number" id="mixAdapter" value="0" min="0" max="100" step="1" oninput="recalc()">
+            <span class="deduct-sym">%</span>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);">
+          <div style="font-family:var(--mono);font-size:9px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Blended Missing Deduct / Unit</div>
+          <div id="blendedMissing" style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--warn);">$0.00</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text-muted);margin-top:3px;">applied to all units via lot mix %</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel" id="rightPanel">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">◈</div>
+      Add line items to see<br>your profit breakdown
+    </div>
+
+    <div id="resultsContent" style="display:none; display:flex; flex-direction:column; gap:16px;">
+
+      <!-- Net Profit -->
+      <div class="result-block" id="profitBlock">
+        <div class="result-label">Estimated Net Profit</div>
+        <div class="result-value" id="netProfitVal">—</div>
+        <div class="result-sub" id="profitSub"></div>
+      </div>
+
+      <!-- COG -->
+      <div class="result-block highlight-amber" id="cogBlock">
+        <div class="result-label">Estimated Cost of Goods</div>
+        <div class="result-value" id="cogVal" style="color:var(--warn)">—</div>
+        <div class="result-sub" id="cogSub"></div>
+      </div>
+
+      <!-- Net Sale Revenue -->
+      <div class="result-block highlight-blue" id="revenueBlock">
+        <div class="result-label">Net Sale Revenue</div>
+        <div class="result-value" id="grossRevenueVal" style="color:var(--blue)">—</div>
+        <div class="result-sub" id="revenueSub"></div>
+      </div>
+
+      <!-- Margin Bar -->
+      <div class="result-block">
+        <div class="result-label">Margin vs Target</div>
+        <div class="margin-bar-wrap">
+          <div class="margin-bar-track">
+            <div class="margin-bar-fill" id="marginBar" style="width:0%"></div>
+          </div>
+          <div class="margin-bar-labels">
+            <span id="marginActual">0%</span>
+            <span id="marginTarget">Target: 30%</span>
+          </div>
+        </div>
+        <div class="result-sub" id="marginStatus"></div>
+      </div>
+
+      <!-- Revenue / Cost Breakdown -->
+      <div class="result-block">
+        <div class="result-label">Revenue &amp; Cost Breakdown</div>
+        <div class="breakdown-list" id="breakdownList"></div>
+      </div>
+
+      <!-- Per-Item -->
+      <div class="result-block">
+        <div class="result-label">Per Line Item</div>
+        <div class="items-breakdown" id="itemsBreakdown"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let items = [];
+let nextId = 1;
+
+const MISSING_KEYS = [
+  { id: 'missingHDD',     label: 'HDD/SSD' },
+  { id: 'missingRAM',     label: 'RAM' },
+  { id: 'missingAdapter', label: 'Adapter' },
+];
+
+// ── Paste from Excel ───────────────────────────────────────────────────────
+function handlePaste(raw) {
+  if (!raw || !raw.trim()) return;
+
+  const lines = raw.trim().split(/\r?\n/);
+  let added = 0, skipped = 0;
+
+  // If there's exactly one item and it's blank, remove it so paste starts at row 1
+  if (items.length === 1 && !items[0].pn && items[0].salePrice === 0) {
+    items = [];
+  }
+
+  lines.forEach(line => {
+    if (!line.trim()) return;
+
+    const cols = line.split(/\t/).map(s => s.trim());
+    const [pnRaw, qtyRaw, priceRaw] = cols;
+
+    if (!pnRaw || /^(part\s*#?|part\s*number|pn|sku|item|description)$/i.test(pnRaw)) { skipped++; return; }
+
+    const qty   = Math.max(1, parseInt(qtyRaw)   || 1);
+    const price = Math.max(0, parseFloat((priceRaw || '0').replace(/[$,]/g, '')) || 0);
+
+    const id = nextId++;
+    items.push({ id, pn: pnRaw, qty, salePrice: price, buyCost: 0, grade: 'AB', missing: [] });
+    added++;
+  });
+
+  if (added > 0) {
     renderHeader();
-renderItems();
-recalc();
-showToast(`✓ ${added} row${added !== 1 ? 's' : ''} imported${skipped ? ` (${skipped} skipped)` : ''}`);
-@@ -925,12 +911,14 @@
+    renderItems();
+    recalc();
+    showToast(`✓ ${added} row${added !== 1 ? 's' : ''} imported${skipped ? ` (${skipped} skipped)` : ''}`);
+  } else {
+    showToast('No valid rows found — check format: Part# · Qty · Price', true);
+  }
+}
+
+function showToast(msg, isErr) {
+  const el = document.getElementById('pasteFeedback');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.background = isErr ? 'var(--danger)' : 'var(--accent)';
+  el.style.color = isErr ? '#fff' : '#0d0f12';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.style.display = 'none', 3000);
+}
+
+// ── Item management ────────────────────────────────────────────────────────
 function addItem() {
-const id = nextId++;
-items.push({ id, pn: '', qty: 1, buyCost: 0, salePrice: 0, grade: 'AB', missing: [] });
+  const id = nextId++;
+  items.push({ id, pn: '', qty: 1, buyCost: 0, salePrice: 0, grade: 'AB', missing: [] });
   renderHeader();
-renderItems();
-recalc();
+  renderItems();
+  recalc();
 }
 
 function removeItem(id) {
-items = items.filter(i => i.id !== id);
+  items = items.filter(i => i.id !== id);
   renderHeader();
-renderItems();
-recalc();
+  renderItems();
+  recalc();
 }
-@@ -948,29 +936,111 @@
-recalc();
+
+function updateItem(id, field, value) {
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+  if (field === 'missing') {
+    const key = value;
+    if (item.missing.includes(key)) item.missing = item.missing.filter(k => k !== key);
+    else item.missing.push(key);
+  } else {
+    item[field] = value;
+  }
+  recalc();
 }
 
 // ── Column order ───────────────────────────────────────────────────────────
@@ -165,28 +1038,11 @@ function renderFooter(show) {
 }
 
 function renderItems() {
-const tbody = document.getElementById('itemsBody');
-tbody.innerHTML = '';
-items.forEach(item => {
-const tr = document.createElement('tr');
-tr.className = 'item-row';
-    tr.innerHTML = `
-      <td><input class="tbl-input w120" type="text" placeholder="e.g. 3KXY8AV" value="${item.pn}"
-        oninput="updateItem(${item.id},'pn',this.value)"></td>
-      <td><input class="tbl-input w80" type="number" value="${item.qty}" min="1" step="1"
-        oninput="updateItem(${item.id},'qty',parseFloat(this.value)||0)"></td>
-      <td><input class="tbl-input w100" type="number" value="${item.salePrice}" min="0" step="0.01" placeholder="0.00"
-        oninput="updateItem(${item.id},'salePrice',parseFloat(this.value)||0)"></td>
-      <td><div class="calc-cell zero" id="totalsell-${item.id}"><span>—</span><span class="calc-tag">auto</span></div></td>
-      <td><div class="calc-cell zero" id="maxbuy-${item.id}"><span>—</span><span class="calc-tag">auto</span></div></td>
-      <td><div class="calc-cell zero" id="totalbuy-${item.id}"><span>—</span><span class="calc-tag">auto</span></div></td>
-      <td>
-        <select class="tbl-input" onchange="updateItem(${item.id},'grade',this.value)">
-          ${['AB','C','D','F'].map(g => `<option value="${g}" ${item.grade===g?'selected':''}>${g === 'AB' ? 'A/B' : g}</option>`).join('')}
-        </select>
-      </td>
-      <td><button class="del-btn" onclick="removeItem(${item.id})">×</button></td>
-    `;
+  const tbody = document.getElementById('itemsBody');
+  tbody.innerHTML = '';
+  items.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.className = 'item-row';
     columnOrder.forEach(colId => {
       const td = document.createElement('td');
       if (colId === 'pn') {
@@ -208,49 +1064,213 @@ tr.className = 'item-row';
       }
       tr.appendChild(td);
     });
-tbody.appendChild(tr);
-});
-}
-@@ -1070,15 +1140,15 @@
-const maxBuyCostEach = qty > 0 ? maxBuyCostTotal / qty : 0;
-const maxBuyCostTotalClamped = Math.max(0, maxBuyCostTotal);
-
-    // Total Sell = qty × sale price (gross, before any deductions)
-    // Total Sell = gross minus deductions
-const sellCell = document.getElementById(`totalsell-${item.id}`);
-if (sellCell) {
-if (item.salePrice <= 0 || qty <= 0) {
-sellCell.className = 'calc-cell zero';
-sellCell.innerHTML = '<span>—</span><span class="calc-tag">auto</span>';
-} else {
-sellCell.className = 'calc-cell';
-        sellCell.innerHTML = `<span style="color:var(--blue)">${fmt(grossRevenue)}</span><span class="calc-tag">auto</span>`;
-        sellCell.innerHTML = `<span style="color:var(--blue)">${fmt(netRevenue)}</span><span class="calc-tag">auto</span>`;
-}
+    tbody.appendChild(tr);
+  });
 }
 
-@@ -1147,23 +1217,23 @@
-const empty = document.getElementById('emptyState');
-const content = document.getElementById('resultsContent');
+// ── Calculation ────────────────────────────────────────────────────────────
+function getNum(id) { return parseFloat(document.getElementById(id).value) || 0; }
 
-  const foot = document.getElementById('itemsFoot');
-if (items.length === 0) {
-empty.style.display = 'block';
-content.style.display = 'none';
-    if (foot) foot.style.display = 'none';
-    renderFooter(false);
-return;
-}
-empty.style.display = 'none';
-content.style.display = 'flex';
+function recalc() {
+  const targetMargin   = getNum('targetMargin') / 100;
+  const processingCost = getNum('processingCost');
+  const shippingCost   = getNum('shippingCost');
+  const platformFee    = getNum('platformFee') / 100;
 
-  // Update table footer totals
-  if (foot) {
-    foot.style.display = '';
-    document.getElementById('footQty').textContent = d.totalUnits + ' units';
-    document.getElementById('footRevenue').textContent = fmt(d.totalRevenue);
-    document.getElementById('footMaxBuy').textContent = fmt(d.totalBuyCost);
+  const grades = {
+    AB: getNum('gradeAB') / 100,
+    C:  getNum('gradeC')  / 100,
+    D:  getNum('gradeD')  / 100,
+    F:  getNum('gradeF')  / 100,
+  };
+
+  // Lot mix allocations (% of units expected at each grade)
+  const mix = {
+    AB: getNum('mixAB') / 100,
+    C:  getNum('mixC')  / 100,
+    D:  getNum('mixD')  / 100,
+    F:  getNum('mixF')  / 100,
+  };
+  const mixTotal = (mix.AB + mix.C + mix.D + mix.F);
+
+  // Update mix total indicator
+  const mixTotalEl = document.getElementById('mixTotal');
+  const mixStatusEl = document.getElementById('mixStatus');
+  const mixPct = (mixTotal * 100).toFixed(1);
+  mixTotalEl.textContent = mixPct + '%';
+  if (Math.abs(mixTotal - 1) < 0.001) {
+    mixTotalEl.style.color = 'var(--accent)';
+    mixStatusEl.textContent = '✓';
+    mixStatusEl.style.color = 'var(--accent)';
+  } else if (mixTotal > 1) {
+    mixTotalEl.style.color = 'var(--danger)';
+    mixStatusEl.textContent = '↑ over 100%';
+    mixStatusEl.style.color = 'var(--danger)';
+  } else {
+    mixTotalEl.style.color = 'var(--warn)';
+    mixStatusEl.textContent = `↓ ${(100 - mixTotal*100).toFixed(1)}% unallocated`;
+    mixStatusEl.style.color = 'var(--warn)';
   }
+
+  // Blended grade deduction % = weighted average across the mix
+  // e.g. 70%A@0% + 15%B@5% + 8%C@15% + 2%D@30% + 5%F@60%
+  const blendedGradePct = mix.AB*grades.AB + mix.C*grades.C + mix.D*grades.D + mix.F*grades.F;
+
+  const missingVals = {};
+  MISSING_KEYS.forEach(mk => missingVals[mk.id] = getNum(mk.id));
+
+  // Blended missing deduct per unit = each component's $ × its lot mix %
+  const mixMissing = {
+    missingHDD:     getNum('mixHDD') / 100,
+    missingRAM:     getNum('mixRAM') / 100,
+    missingAdapter: getNum('mixAdapter') / 100,
+  };
+  const blendedMissingPerUnit = MISSING_KEYS.reduce((s, mk) => s + (missingVals[mk.id] * mixMissing[mk.id]), 0);
+
+  // Update blended missing display
+  const bmEl = document.getElementById('blendedMissing');
+  if (bmEl) bmEl.textContent = fmt(blendedMissingPerUnit);
+
+  // Total units for splitting shipping cost — use actual qty, not forced min of 1
+  const totalUnits = items.reduce((s, i) => s + Math.max(0, i.qty || 0), 0);
+
+  let totalRevenue = 0;
+  let totalMaxBuyCost = 0;
+  let totalGradeDeduct = 0;
+  let totalMissingDeduct = 0;
+  let totalProcessing = 0;
+  let totalPlatformFee = 0;
+
+  const itemResults = items.map(item => {
+    const qty = Math.max(0, item.qty || 0);
+    const grossRevenue = item.salePrice * qty;
+
+    // Deductions reduce what we actually collect (net sell price)
+    const gradeDeductAmt = grossRevenue * blendedGradePct;
+    const missingDeductAmt = blendedMissingPerUnit * qty;
+    const netRevenue = grossRevenue - gradeDeductAmt - missingDeductAmt;
+
+    // Operating costs we eat, applied against net revenue
+    const platformCut = netRevenue * platformFee;
+    const shippingShare = totalUnits > 0 ? (shippingCost * qty / totalUnits) : 0;
+
+    // Max Buy: back-calculated from net revenue after all costs
+    // = netRevenue × (1 − margin) − processing − shipping − platform
+    const maxBuyCostTotal = (netRevenue * (1 - targetMargin))
+      - (processingCost * qty)
+      - shippingShare
+      - platformCut;
+    const maxBuyCostEach = qty > 0 ? maxBuyCostTotal / qty : 0;
+    const maxBuyCostTotalClamped = Math.max(0, maxBuyCostTotal);
+
+    // Total Sell = gross, deduction lines, net
+    const sellCell = document.getElementById(`totalsell-${item.id}`);
+    if (sellCell) {
+      if (item.salePrice <= 0 || qty <= 0) {
+        sellCell.className = 'calc-cell zero';
+        sellCell.innerHTML = '<span>—</span><span class="calc-tag">auto</span>';
+      } else {
+        const totalDeduct = gradeDeductAmt + missingDeductAmt;
+        sellCell.className = 'calc-cell';
+        sellCell.style.flexDirection = 'column';
+        sellCell.style.alignItems = 'flex-start';
+        sellCell.style.gap = '2px';
+        sellCell.style.padding = '5px 10px';
+        let html = `<span style="color:var(--blue);font-weight:700;">${fmt(grossRevenue)}</span>`;
+        if (gradeDeductAmt > 0) html += `<span style="color:var(--danger);font-size:10px;">− ${fmt(gradeDeductAmt)} grade</span>`;
+        if (missingDeductAmt > 0) html += `<span style="color:var(--danger);font-size:10px;">− ${fmt(missingDeductAmt)} missing</span>`;
+        if (totalDeduct > 0) html += `<span style="color:var(--text-muted);font-size:10px;border-top:1px solid var(--border);padding-top:2px;margin-top:1px;width:100%;">= ${fmt(netRevenue)} net</span>`;
+        sellCell.innerHTML = html;
+      }
+    }
+
+    // Update Max Buy (ea) cell
+    const cell = document.getElementById(`maxbuy-${item.id}`);
+    if (cell) {
+      if (item.salePrice <= 0) {
+        cell.className = 'calc-cell zero';
+        cell.innerHTML = '<span>—</span><span class="calc-tag">auto</span>';
+      } else if (maxBuyCostEach <= 0) {
+        cell.className = 'calc-cell zero';
+        cell.innerHTML = `<span style="color:var(--danger)">$0.00</span><span class="calc-tag">auto</span>`;
+      } else {
+        cell.className = 'calc-cell';
+        cell.innerHTML = `<span>${fmt(maxBuyCostEach)}</span><span class="calc-tag">auto</span>`;
+      }
+    }
+
+    // Update Total Buy cell
+    const buyCell = document.getElementById(`totalbuy-${item.id}`);
+    if (buyCell) {
+      if (item.salePrice <= 0 || qty <= 0) {
+        buyCell.className = 'calc-cell zero';
+        buyCell.innerHTML = '<span>—</span><span class="calc-tag">auto</span>';
+      } else if (maxBuyCostTotalClamped <= 0) {
+        buyCell.className = 'calc-cell zero';
+        buyCell.innerHTML = `<span style="color:var(--danger)">$0.00</span><span class="calc-tag">auto</span>`;
+      } else {
+        buyCell.className = 'calc-cell';
+        buyCell.innerHTML = `<span>${fmt(maxBuyCostTotalClamped)}</span><span class="calc-tag">auto</span>`;
+      }
+    }
+
+    const itemProfit = netRevenue - maxBuyCostTotalClamped - (processingCost * qty) - shippingShare - platformCut;
+
+    totalRevenue      += grossRevenue;
+    totalMaxBuyCost   += maxBuyCostTotalClamped;
+    totalGradeDeduct  += gradeDeductAmt;
+    totalMissingDeduct += missingDeductAmt;
+    totalProcessing   += processingCost * qty;
+    totalPlatformFee  += platformCut;
+
+    return { item, qty, grossRevenue, netRevenue, gradeDeductAmt, missingDeductAmt, buyCostTotal: maxBuyCostTotalClamped, itemProfit, maxBuyCostEach, blendedGradePct, blendedMissingPerUnit };
+  });
+
+  const totalGrossRevenue = totalRevenue;
+  const totalNetRevenue   = totalGrossRevenue - totalGradeDeduct - totalMissingDeduct;
+  const netProfit  = totalNetRevenue - totalMaxBuyCost - totalProcessing - shippingCost - totalPlatformFee;
+  const actualMargin = totalNetRevenue > 0 ? netProfit / totalNetRevenue : 0;
+
+  renderResults({ netProfit, actualMargin, targetMargin, totalRevenue: totalGrossRevenue, totalNetRevenue,
+    totalBuyCost: totalMaxBuyCost, totalGradeDeduct, totalMissingDeduct, totalProcessing,
+    shippingCost, totalPlatformFee, itemResults, totalUnits, blendedGradePct, blendedMissingPerUnit });
+}
+
+// ── Render results ─────────────────────────────────────────────────────────
+function fmt(n) {
+  const rounded = Math.round(n);
+  const abs = Math.abs(rounded);
+  const str = abs.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return (rounded < 0 ? '-$' : '$') + str;
+}
+function fmtPct(n) { return (n * 100).toFixed(1) + '%'; }
+
+function renderResults(d) {
+  const empty = document.getElementById('emptyState');
+  const content = document.getElementById('resultsContent');
+
+  if (items.length === 0) {
+    empty.style.display = 'block';
+    content.style.display = 'none';
+    renderFooter(false);
+    document.getElementById('costTotalsBar').style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  content.style.display = 'flex';
+
+  // Cost config totals bar
+  const bar = document.getElementById('costTotalsBar');
+  bar.style.display = 'flex';
+  const platformFeeAmt = d.totalPlatformFee;
+  const platformFeePct = d.totalNetRevenue > 0 ? platformFeeAmt / d.totalNetRevenue * 100 : 0;
+  document.getElementById('ctProcessing').textContent   = fmt(d.totalProcessing);
+  document.getElementById('ctProcessingSub').textContent = `$${Math.round(d.totalProcessing / Math.max(1, d.totalUnits))}/unit × ${d.totalUnits} units`;
+  document.getElementById('ctShipping').textContent     = fmt(d.shippingCost);
+  document.getElementById('ctPlatform').textContent     = fmt(platformFeeAmt);
+  document.getElementById('ctPlatformSub').textContent  = `${fmtPct(platformFeePct)} of net revenue`;
+  document.getElementById('ctTotal').textContent        = fmt(d.totalProcessing + d.shippingCost + platformFeeAmt);
+
   // Rebuild footer in correct column order then populate
   renderFooter(true);
   const footQty     = document.getElementById('footQty');
@@ -260,17 +1280,360 @@ content.style.display = 'flex';
   if (footRevenue) footRevenue.textContent = fmt(d.totalNetRevenue);
   if (footMaxBuy)  footMaxBuy.textContent  = fmt(d.totalBuyCost);
 
-// Net Profit block
-const profitBlock = document.getElementById('profitBlock');
-@@ -1261,6 +1331,7 @@
-if (items.length && !confirm('Clear all line items?')) return;
-items = [];
-nextId = 1;
-  renderHeader();
-renderItems();
-recalc();
+  // Net Profit block
+  const profitBlock = document.getElementById('profitBlock');
+  const profitVal = document.getElementById('netProfitVal');
+  const profitSub = document.getElementById('profitSub');
+  profitVal.textContent = fmt(d.netProfit);
+  profitVal.className = 'result-value ' + (d.netProfit >= 0 ? 'green' : 'red');
+  const profitMarginLabel = d.totalNetRevenue > 0 ? ` · ${fmtPct(d.actualMargin)} margin` : '';
+  profitSub.textContent = `${d.totalUnits} unit${d.totalUnits!==1?'s':''}${profitMarginLabel}`;
+  profitBlock.className = 'result-block ' + (d.netProfit > 0 ? 'highlight' : d.netProfit < 0 ? 'highlight-danger' : '');
+
+  // COG block — buy cost + operating costs we eat
+  const totalCOG = d.totalBuyCost + d.totalProcessing + d.shippingCost + d.totalPlatformFee;
+  const cogVal = document.getElementById('cogVal');
+  const cogSub = document.getElementById('cogSub');
+  cogVal.textContent = fmt(totalCOG);
+  const cogPerUnit = d.totalUnits > 0 ? totalCOG / d.totalUnits : 0;
+  cogSub.textContent = `${fmt(cogPerUnit)}/unit avg · buy + processing + shipping + platform`;
+
+  // Gross Revenue block — show gross with deduction breakdown in sub
+  const grossRevenueVal = document.getElementById('grossRevenueVal');
+  const revenueSub = document.getElementById('revenueSub');
+  grossRevenueVal.textContent = fmt(d.totalNetRevenue);
+  const deductTotal = d.totalGradeDeduct + d.totalMissingDeduct;
+  revenueSub.textContent = deductTotal > 0
+    ? `Gross ${fmt(d.totalRevenue)} − deductions ${fmt(deductTotal)}`
+    : `${fmt(d.totalUnits > 0 ? d.totalNetRevenue / d.totalUnits : 0)}/unit avg`;
+
+  // Margin bar
+  const pct = Math.min(Math.max(d.actualMargin, 0), 1);
+  const bar = document.getElementById('marginBar');
+  const barColor = d.actualMargin >= d.targetMargin ? '#00a572'
+                 : d.actualMargin >= d.targetMargin * 0.7 ? '#d97706'
+                 : '#dc2626';
+  bar.style.width = (pct * 100) + '%';
+  bar.style.background = barColor;
+
+  document.getElementById('marginActual').textContent = fmtPct(d.actualMargin);
+  document.getElementById('marginActual').style.color = barColor;
+  document.getElementById('marginTarget').textContent = 'Target: ' + fmtPct(d.targetMargin);
+
+  const diff = d.actualMargin - d.targetMargin;
+  const marginStatus = document.getElementById('marginStatus');
+  if (diff >= 0) {
+    marginStatus.textContent = `▲ ${fmtPct(Math.abs(diff))} above target`;
+    marginStatus.style.color = '#00a572';
+  } else {
+    marginStatus.textContent = `▼ ${fmtPct(Math.abs(diff))} below target`;
+    marginStatus.style.color = '#dc2626';
+  }
+
+  // Breakdown
+  const breakdown = [
+    { label: 'Gross Sale Revenue',                                                        val: d.totalRevenue,          cls: 'pos' },
+    { label: `Less: Grade Deduction (blended ${(d.blendedGradePct*100).toFixed(1)}%)`,   val: -d.totalGradeDeduct,     cls: 'neg' },
+    { label: `Less: Missing Parts Deduction (${fmt(d.blendedMissingPerUnit)}/unit)`,     val: -d.totalMissingDeduct,   cls: 'neg' },
+    { label: '= Net Sale Revenue',                                                        val: d.totalNetRevenue,       cls: 'pos', bold: false, dim: true },
+    { label: 'Less: Processing Cost (we eat)',                                            val: -d.totalProcessing,      cls: 'neg' },
+    { label: 'Less: Shipping Cost (we eat)',                                              val: -d.shippingCost,         cls: 'neg' },
+    { label: 'Less: Platform Fee (we eat)',                                               val: -d.totalPlatformFee,     cls: 'neg' },
+    { label: 'Less: Max Buy / Acquisition Cost',                                          val: -d.totalBuyCost,         cls: 'neg' },
+    { label: 'Net Profit',                                                                val: d.netProfit,             cls: d.netProfit >= 0 ? 'pos' : 'neg', bold: true },
+  ];
+
+  document.getElementById('breakdownList').innerHTML = breakdown.map(row => `
+    <div class="breakdown-row" ${row.bold ? 'style="font-weight:700;border-top:1px solid var(--border2);margin-top:4px;padding-top:10px;"' : ''}>
+      <span class="bkey">${row.label}</span>
+      <span class="bval ${row.cls}">${fmt(row.val)}</span>
+    </div>
+  `).join('');
+
+  // Per-item
+  document.getElementById('itemsBreakdown').innerHTML = d.itemResults.map(ir => {
+    const pn = ir.item.pn || `Item #${ir.item.id}`;
+    const buyCls = ir.maxBuyCostEach > 0 ? 'var(--accent)' : 'var(--danger)';
+    return `<div class="item-result-row" style="flex-direction:column;gap:3px;">
+      <div style="display:flex;justify-content:space-between;width:100%;">
+        <span class="item-result-pn">${pn}</span>
+        <span class="item-result-qty">×${ir.qty}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;width:100%;font-size:10px;">
+        <span style="color:var(--text-muted)">Max buy/ea: <span style="color:${buyCls};font-weight:700;">${ir.maxBuyCostEach > 0 ? fmt(ir.maxBuyCostEach) : '$0.00'}</span></span>
+        <span style="color:var(--text-muted)">Net rev: <span style="color:var(--text-dim)">${fmt(ir.netRevenue)}</span></span>
+      </div>
+      <div style="display:flex;gap:8px;width:100%;font-size:10px;">
+        <span style="color:var(--text-muted)">Grade chargeback: <span style="color:var(--warn)">${(ir.blendedGradePct*100).toFixed(1)}%</span></span>
+        <span style="color:var(--text-muted)">Missing chargeback: <span style="color:var(--warn)">${fmt(ir.blendedMissingPerUnit)}/unit</span></span>
+      </div>
+    </div>`;
+  }).join('');
 }
-@@ -1521,6 +1592,7 @@
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+function clearAll() {
+  if (items.length && !confirm('Clear all line items?')) return;
+  items = [];
+  nextId = 1;
+  renderHeader();
+  renderItems();
+  recalc();
+}
+
+function exportXLSX() {
+  if (!items.length) { alert('Add at least one line item before exporting.'); return; }
+
+  const btn = document.getElementById('exportBtn');
+  btn.textContent = '⏳ Building...';
+  btn.disabled = true;
+
+  setTimeout(() => {
+    try {
+      const wb = XLSX.utils.book_new();
+
+      // ── Gather all config values ──────────────────────────────────────────
+      const targetMarginPct = getNum('targetMargin');
+      const targetMargin    = targetMarginPct / 100;
+      const processingCost  = getNum('processingCost');
+      const shippingCost    = getNum('shippingCost');
+      const platformFeePct  = getNum('platformFee');
+      const platformFee     = platformFeePct / 100;
+      const grades = { AB: getNum('gradeAB')/100, C: getNum('gradeC')/100, D: getNum('gradeD')/100, F: getNum('gradeF')/100 };
+      const missingVals = {};
+      MISSING_KEYS.forEach(mk => missingVals[mk.id] = getNum(mk.id));
+      const totalUnits = items.reduce((s, i) => s + Math.max(0, i.qty || 0), 0);
+
+      // ── Helper: style cell object ─────────────────────────────────────────
+      const c = (v, t='s', fmt, bold, color, bg, align, italic) => {
+        const o = { v, t: t||'s' };
+        const s = {};
+        if (fmt)   s.numFmt = fmt;
+        if (bold||color||italic) s.font = { ...(bold && {bold:true}), ...(color && {color:{rgb:color}}), ...(italic && {italic:true}), name:'Arial', sz: bold ? 11 : 10 };
+        if (bg)    s.fill = { fgColor:{rgb:bg}, patternType:'solid' };
+        if (align) s.alignment = { horizontal: align, wrapText: true };
+        o.s = s;
+        return o;
+      };
+      const money = (v, bold, color, bg) => c(v, 'n', '$#,##0.00;($#,##0.00);"-"', bold, color, bg, 'right');
+      const pct   = (v, bold, color, bg) => c(v, 'n', '0.0%;(0.0%);"-"', bold, color, bg, 'right');
+      const num   = (v, bold, color, bg) => c(v, 'n', '#,##0', bold, color, bg, 'right');
+      const hdr   = (v, bg, color) => c(v, 's', null, true, color||'FFFFFF', bg||'1E2A38', 'center');
+      const lbl   = (v, bold, color) => c(v, 's', null, bold, color||'4B5563', null, 'left');
+      const blank = () => c('', 's');
+
+      // ════════════════════════════════════════════════════════════════════
+      // SHEET 1: DEAL SUMMARY
+      // ════════════════════════════════════════════════════════════════════
+      const sum = [];
+
+      // Title block
+      sum.push([c('DEAL PROFIT ESTIMATE', 's', null, true, '00E5A0', '0D0F12', 'left'), blank(), blank(), blank(), blank()]);
+      sum.push([c(`Generated: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}`, 's', null, false, '6B7280', null, 'left'), blank(), blank(), blank(), blank()]);
+      sum.push([blank()]);
+
+      // Config assumptions box
+      const mixAB = getNum('mixAB')/100, mixC = getNum('mixC')/100, mixD = getNum('mixD')/100, mixF = getNum('mixF')/100;
+      const mixHDD = getNum('mixHDD')/100, mixRAM = getNum('mixRAM')/100, mixAdapter = getNum('mixAdapter')/100;
+      const blendedGradePct = mixAB*grades.AB + mixC*grades.C + mixD*grades.D + mixF*grades.F;
+      const blendedMissingPU = missingVals.missingHDD*mixHDD + missingVals.missingRAM*mixRAM + missingVals.missingAdapter*mixAdapter;
+
+      sum.push([hdr('ASSUMPTIONS', '1A2535', 'A3C4E8'), hdr('VALUE', '1A2535', 'A3C4E8'), blank(), hdr('DEDUCTION RULES', '1A2535', 'A3C4E8'), hdr('VALUE', '1A2535', 'A3C4E8')]);
+      sum.push([lbl('Target Margin',true,'000000'), pct(targetMargin, false, '0000FF'), blank(), lbl('Grade A/B Deduct',false,'374151'), pct(grades.AB)]);
+      sum.push([lbl('Processing Cost / Unit',true,'000000'), money(processingCost, false, '0000FF'), blank(), lbl('Grade C Deduct',false,'374151'), pct(grades.C)]);
+      sum.push([lbl('Shipping Cost (lot)',true,'000000'), money(shippingCost, false, '0000FF'), blank(), lbl('Grade D Deduct',false,'374151'), pct(grades.D)]);
+      sum.push([lbl('Platform Fee',true,'000000'), pct(platformFee, false, '0000FF'), blank(), lbl('Grade F Deduct',false,'374151'), pct(grades.F)]);
+      sum.push([blank(), blank(), blank(), lbl('Lot Mix A/B',false,'374151'), pct(mixAB)]);
+      sum.push([blank(), blank(), blank(), lbl('Lot Mix C',false,'374151'), pct(mixC)]);
+      sum.push([blank(), blank(), blank(), lbl('Lot Mix D',false,'374151'), pct(mixD)]);
+      sum.push([blank(), blank(), blank(), lbl('Lot Mix F',false,'374151'), pct(mixF)]);
+      sum.push([blank(), blank(), blank(), lbl('Blended Grade Deduct',true,'000000'), pct(blendedGradePct)]);
+      sum.push([blank(), blank(), blank(), lbl('Missing HDD/SSD ($)',false,'374151'), money(missingVals.missingHDD)]);
+      sum.push([blank(), blank(), blank(), lbl('Missing RAM ($)',false,'374151'), money(missingVals.missingRAM)]);
+      sum.push([blank(), blank(), blank(), lbl('Missing Adapter ($)',false,'374151'), money(missingVals.missingAdapter)]);
+      sum.push([blank(), blank(), blank(), lbl('Blended Missing/Unit',true,'000000'), money(blendedMissingPU)]);
+      sum.push([blank()]);
+
+      // Totals waterfall
+      sum.push([hdr('DEAL SUMMARY — WATERFALL', '243447', 'E8EAF0'), hdr('AMOUNT', '243447', 'E8EAF0'), hdr('FORMULA / NOTE', '243447', 'E8EAF0'), blank(), blank()]);
+
+      let totRev=0, totGrade=0, totMiss=0, totProc=0, totPlat=0, totBuy=0;
+      const itemCalcs = items.map(item => {
+        const qty = Math.max(0, item.qty || 0);
+        const rawRev = item.salePrice * qty;
+        const gradeD = rawRev * blendedGradePct;
+        const adjRev = rawRev - gradeD;
+        const missD = blendedMissingPU * qty;
+        const netRev = adjRev - missD;
+        const platCut = netRev * platformFee;
+        const shipShare = totalUnits > 0 ? shippingCost * qty / totalUnits : 0;
+        const maxBuyTotal = (netRev - platCut) - (processingCost*qty) - shipShare - (targetMargin*netRev);
+        const maxBuyEa = qty > 0 ? Math.max(0, maxBuyTotal/qty) : 0;
+        totRev   += rawRev;
+        totGrade += gradeD;
+        totMiss  += missD;
+        totProc  += processingCost * qty;
+        totPlat  += platCut;
+        totBuy   += Math.max(0, maxBuyTotal);
+        return { item, qty, rawRev, gradeD, adjRev, missD, netRev, platCut, shipShare, maxBuyTotal, maxBuyEa };
+      });
+
+      const totNetRev = totRev - totGrade - totMiss;
+      const totNetProfit = totNetRev - totBuy - totProc - shippingCost - totPlat;
+      const actualMarginVal = totNetRev > 0 ? totNetProfit / totNetRev : 0;
+
+      const wfRows = [
+        ['Gross Sale Revenue',         totRev,              'Sum of (Sale Price × Qty) per line item',                          '00C853', '000000'],
+        ['Less: Grade Deductions',    -totGrade,            'Sale Revenue × Grade Deduction % per item',                         'FF5252', 'FFFFFF'],
+        ['Less: Missing Part Deduct', -totMiss,             'Missing Component $ × Qty per item',                                'FF5252', 'FFFFFF'],
+        ['= Net Adjusted Revenue',     totNetRev,           'Gross Revenue − Grade Deductions − Missing Deductions',             '1565C0', 'FFFFFF'],
+        ['Less: Platform Fee',        -totPlat,             `Net Adj. Revenue × ${platformFeePct}%`,                            'FF5252', 'FFFFFF'],
+        ['Less: Processing Cost',     -totProc,             `$${processingCost}/unit × ${totalUnits} total units`,              'FF5252', 'FFFFFF'],
+        ['Less: Shipping Cost',       -shippingCost,        'Flat lot shipping cost',                                            'FF5252', 'FFFFFF'],
+        ['Less: Max Buy Cost',        -totBuy,              'Back-calculated: Net Rev × (1 − Target Margin) − other costs',     'FF5252', 'FFFFFF'],
+        ['= NET PROFIT',               totNetProfit,        `At ${targetMarginPct}% target margin`,                             totNetProfit>=0?'00695C':'B71C1C', 'FFFFFF'],
+        ['Actual Margin %',            actualMarginVal,     'Net Profit ÷ Net Adjusted Revenue',                                 actualMarginVal>=targetMargin?'00695C':'B71C1C', 'FFFFFF'],
+      ];
+
+      wfRows.forEach(([label, val, note, bg, fg], i) => {
+        const isTotal = label.startsWith('=');
+        const isMarg  = label.includes('%');
+        const valCell = isMarg ? pct(val, isTotal, fg, bg) : money(val, isTotal, fg, bg);
+        sum.push([
+          c(label, 's', null, isTotal, fg, bg, 'left'),
+          valCell,
+          c(note, 's', null, false, '6B7280', null, 'left'),
+          blank(), blank()
+        ]);
+      });
+
+      sum.push([blank()]);
+      sum.push([c('Blue = hardcoded input   |   Black = calculated   |   Colored rows = totals', 's', null, false, '6B7280', null, 'left')]);
+
+      const ws1 = XLSX.utils.aoa_to_sheet(sum);
+      ws1['!cols'] = [{wch:30},{wch:16},{wch:52},{wch:26},{wch:14}];
+      ws1['!merges'] = [
+        {s:{r:0,c:0},e:{r:0,c:4}},
+        {s:{r:1,c:0},e:{r:1,c:4}},
+      ];
+      XLSX.utils.book_append_sheet(wb, ws1, 'Deal Summary');
+
+      // ════════════════════════════════════════════════════════════════════
+      // SHEET 2: LINE ITEM DETAIL
+      // ════════════════════════════════════════════════════════════════════
+      const det = [];
+      det.push([c('LINE ITEM DETAIL — FULL MATH BREAKDOWN', 's', null, true, '00E5A0', '0D0F12', 'left')]);
+      det.push([blank()]);
+
+      const detHdrs = [
+        'Part Number','Qty','Sale Price (ea)','Gross Revenue','Grade',
+        'Grade Deduct %','Grade Deduct $','Adj Revenue','Missing Components',
+        'Missing Deduct $','Net Revenue','Platform Fee $','Proc Cost $',
+        'Shipping Share $','Max Buy Cost (total)','Max Buy Cost (ea)','Actual Margin %'
+      ];
+      det.push(detHdrs.map(h => hdr(h, '1E3A5F', 'A3C4E8')));
+
+      itemCalcs.forEach((ic, idx) => {
+        const missingLabels = ic.item.missing.map(mk => MISSING_KEYS.find(k=>k.id===mk)?.label||mk).join(', ') || 'None';
+        const actualItemMargin = ic.netRev > 0 ? (ic.netRev - Math.max(0,ic.maxBuyTotal) - (processingCost*ic.qty) - ic.shipShare - ic.platCut) / ic.netRev : 0;
+        const rowBg = idx % 2 === 0 ? 'F8FAFB' : 'FFFFFF';
+        det.push([
+          c(ic.item.pn || `Item #${ic.item.id}`, 's', null, false, '111827', rowBg),
+          num(ic.qty, false, '111827', rowBg),
+          money(ic.item.salePrice, false, '0000FF', rowBg),
+          money(ic.rawRev, false, '000000', rowBg),
+          c(ic.item.grade, 's', null, true, '111827', rowBg, 'center'),
+          pct(grades[ic.item.grade], false, '000000', rowBg),
+          money(-ic.gradeD, false, 'C62828', rowBg),
+          money(ic.adjRev, false, '000000', rowBg),
+          c(missingLabels, 's', null, false, '374151', rowBg),
+          money(-ic.missD, false, ic.missD>0?'C62828':'374151', rowBg),
+          money(ic.netRev, false, '1565C0', rowBg),
+          money(-ic.platCut, false, 'C62828', rowBg),
+          money(-(processingCost*ic.qty), false, 'C62828', rowBg),
+          money(-ic.shipShare, false, 'C62828', rowBg),
+          money(Math.max(0,ic.maxBuyTotal), false, '000000', rowBg),
+          money(ic.maxBuyEa, false, '0000FF', rowBg),
+          pct(actualItemMargin, false, actualItemMargin>=targetMargin?'00695C':'C62828', rowBg),
+        ]);
+      });
+
+      // Totals row
+      det.push([
+        c('TOTALS', 's', null, true, 'FFFFFF', '1E3A5F', 'left'),
+        num(totalUnits, true, 'FFFFFF', '1E3A5F'),
+        blank(),
+        money(totRev, true, 'FFFFFF', '1E3A5F'),
+        blank(), blank(),
+        money(-totGrade, true, 'FFFFFF', '1E3A5F'),
+        blank(), blank(),
+        money(-totMiss, true, 'FFFFFF', '1E3A5F'),
+        money(totNetRev, true, 'FFFFFF', '1E3A5F'),
+        money(-totPlat, true, 'FFFFFF', '1E3A5F'),
+        money(-totProc, true, 'FFFFFF', '1E3A5F'),
+        money(-shippingCost, true, 'FFFFFF', '1E3A5F'),
+        money(totBuy, true, 'FFFFFF', '1E3A5F'),
+        blank(),
+        pct(actualMarginVal, true, actualMarginVal>=targetMargin?'00E5A0':'FF5252', '1E3A5F'),
+      ]);
+
+      det.push([blank()]);
+      det.push([c('FORMULA KEY', 's', null, true, '1E3A5F', 'D1E8FF', 'left')]);
+      const formulas = [
+        ['Gross Revenue',       'Sale Price (ea) × Qty'],
+        ['Grade Deduct $',      'Gross Revenue × Grade Deduct %'],
+        ['Adj Revenue',         'Gross Revenue − Grade Deduct $'],
+        ['Missing Deduct $',    'Sum of (Missing Component $ × Qty) for each checked component'],
+        ['Net Revenue',         'Adj Revenue − Missing Deduct $'],
+        ['Platform Fee $',      'Net Revenue × Platform Fee %'],
+        ['Proc Cost $',         'Processing Cost/Unit × Qty'],
+        ['Shipping Share $',    'Total Shipping Cost × (Item Qty ÷ Total Lot Units)'],
+        ['Max Buy Cost (total)','Net Revenue − Platform Fee − Proc Cost − Shipping Share − (Net Revenue × Target Margin %)'],
+        ['Max Buy Cost (ea)',   'Max Buy Cost (total) ÷ Qty'],
+        ['Actual Margin %',     '(Net Revenue − Max Buy Cost − Proc − Shipping Share − Platform Fee) ÷ Net Revenue'],
+      ];
+      formulas.forEach(([term, formula]) => {
+        det.push([c(term, 's', null, true, '1E3A5F', null, 'left'), c(formula, 's', null, false, '374151', null, 'left')]);
+      });
+
+      const ws2 = XLSX.utils.aoa_to_sheet(det);
+      ws2['!cols'] = [{wch:18},{wch:6},{wch:14},{wch:14},{wch:7},{wch:12},{wch:13},{wch:13},{wch:22},{wch:13},{wch:13},{wch:13},{wch:12},{wch:13},{wch:17},{wch:16},{wch:13}];
+      ws2['!merges'] = [{s:{r:0,c:0},e:{r:0,c:16}}];
+      XLSX.utils.book_append_sheet(wb, ws2, 'Line Item Detail');
+
+      // ════════════════════════════════════════════════════════════════════
+      // SHEET 3: DEDUCTION REFERENCE
+      // ════════════════════════════════════════════════════════════════════
+      const ref = [];
+      ref.push([c('DEDUCTION REFERENCE SHEET', 's', null, true, '00E5A0', '0D0F12', 'left'), blank(), blank()]);
+      ref.push([blank()]);
+      ref.push([hdr('GRADE DEDUCTIONS (% of sale price)', '1E3A5F', 'A3C4E8'), hdr('DEDUCT %', '1E3A5F', 'A3C4E8'), hdr('EFFECT', '1E3A5F', 'A3C4E8')]);
+      [['AB','Grade A/B — Like New / Refurb / Light Wear'], ['C','Grade C — Moderate Wear'], ['D','Grade D — Heavy Wear / Damage'], ['F','Grade F — Parts / Non-Functional']].forEach(([g,desc]) => {
+        ref.push([c(desc, 's', null, false, '111827'), pct(grades[g], false, '0000FF'), c(`Reduces effective sale price by ${(grades[g]*100).toFixed(0)}%`, 's', null, false, '374151')]);
+      });
+      ref.push([blank()]);
+      ref.push([hdr('MISSING COMPONENTS ($ per unit deducted)', '1E3A5F', 'A3C4E8'), hdr('DEDUCT $', '1E3A5F', 'A3C4E8'), hdr('APPLIES TO', '1E3A5F', 'A3C4E8')]);
+      [['missingHDD','HDD / SSD Drive','Storage-missing units'],['missingRAM','Memory / RAM','RAM-missing units'],['missingAdapter','Power Adapter','Adapter-missing units']].forEach(([id,label,note]) => {
+        ref.push([c(label, 's', null, false, '111827'), money(missingVals[id], false, '0000FF'), c(note, 's', null, false, '374151')]);
+      });
+
+      const ws3 = XLSX.utils.aoa_to_sheet(ref);
+      ws3['!cols'] = [{wch:38},{wch:14},{wch:38}];
+      ws3['!merges'] = [{s:{r:0,c:0},e:{r:0,c:2}}];
+      XLSX.utils.book_append_sheet(wb, ws3, 'Deduction Reference');
+
+      // ── Download ──────────────────────────────────────────────────────────
+      const dateStr = new Date().toISOString().slice(0,10);
+      XLSX.writeFile(wb, `profit-estimate-${dateStr}.xlsx`);
+
+    } catch(e) {
+      console.error(e);
+      alert('Export failed: ' + e.message);
+    }
+
+    btn.textContent = '⬇ Export Excel';
+    btn.disabled = false;
+  }, 50);
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
@@ -278,3 +1641,4 @@ renderHeader();
 addItem();
 </script>
 </body>
+</html>
