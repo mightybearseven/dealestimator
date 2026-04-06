@@ -1029,8 +1029,8 @@ function recalc() {
   const bmEl = document.getElementById('blendedMissing');
   if (bmEl) bmEl.textContent = fmt(blendedMissingPerUnit);
 
-  // Total units for splitting shipping cost
-  const totalUnits = items.reduce((s, i) => s + Math.max(1, i.qty), 0);
+  // Total units for splitting shipping cost — use actual qty, not forced min of 1
+  const totalUnits = items.reduce((s, i) => s + Math.max(0, i.qty || 0), 0);
 
   let totalRevenue = 0;
   let totalMaxBuyCost = 0;
@@ -1040,7 +1040,7 @@ function recalc() {
   let totalPlatformFee = 0;
 
   const itemResults = items.map(item => {
-    const qty = Math.max(1, item.qty);
+    const qty = Math.max(0, item.qty || 0);
     const rawRevenue = item.salePrice * qty;
 
     // Net revenue = full sale price — deductions are charged back to seller, not lost revenue
@@ -1240,7 +1240,7 @@ function exportXLSX() {
       const grades = { AB: getNum('gradeAB')/100, C: getNum('gradeC')/100, D: getNum('gradeD')/100, F: getNum('gradeF')/100 };
       const missingVals = {};
       MISSING_KEYS.forEach(mk => missingVals[mk.id] = getNum(mk.id));
-      const totalUnits = items.reduce((s, i) => s + Math.max(1, i.qty), 0);
+      const totalUnits = items.reduce((s, i) => s + Math.max(0, i.qty || 0), 0);
 
       // ── Helper: style cell object ─────────────────────────────────────────
       const c = (v, t='s', fmt, bold, color, bg, align, italic) => {
@@ -1297,7 +1297,7 @@ function exportXLSX() {
 
       let totRev=0, totGrade=0, totMiss=0, totProc=0, totPlat=0, totBuy=0;
       const itemCalcs = items.map(item => {
-        const qty = Math.max(1, item.qty);
+        const qty = Math.max(0, item.qty || 0);
         const rawRev = item.salePrice * qty;
         const gradeD = rawRev * blendedGradePct;
         const adjRev = rawRev - gradeD;
