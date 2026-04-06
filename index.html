@@ -906,7 +906,7 @@ function handlePaste(raw) {
     const price = Math.max(0, parseFloat((priceRaw || '0').replace(/[$,]/g, '')) || 0);
 
     const id = nextId++;
-    items.push({ id, pn: pnRaw, qty, salePrice: price, buyCost: 0, gradeC: 0, gradeD: 0, gradeF: 0 });
+    items.push({ id, pn: pnRaw, qty, salePrice: price, buyCost: 0, gradeC: 0, gradeD: 0, gradeF: 0, missing: [] });
     added++;
   });
 
@@ -933,7 +933,7 @@ function showToast(msg, isErr) {
 // ── Item management ────────────────────────────────────────────────────────
 function addItem() {
   const id = nextId++;
-  items.push({ id, pn: '', qty: 1, buyCost: 0, salePrice: 0, gradeC: 0, gradeD: 0, gradeF: 0 });
+  items.push({ id, pn: '', qty: 1, buyCost: 0, salePrice: 0, gradeC: 0, gradeD: 0, gradeF: 0, missing: [] });
   renderHeader();
   renderItems();
   recalc();
@@ -949,7 +949,12 @@ function removeItem(id) {
 function updateItem(id, field, value) {
   const item = items.find(i => i.id === id);
   if (!item) return;
-  item[field] = value;
+  if (field === 'missing') {
+    if (item.missing.includes(value)) item.missing = item.missing.filter(k => k !== value);
+    else item.missing.push(value);
+  } else {
+    item[field] = value;
+  }
   recalc();
 }
 
@@ -962,6 +967,7 @@ const COLUMNS = [
   { id: 'gradeC',    label: 'Grade C %',       width: '80px',  draggable: true },
   { id: 'gradeD',    label: 'Grade D %',       width: '80px',  draggable: true },
   { id: 'gradeF',    label: 'Grade F %',       width: '80px',  draggable: true },
+  { id: 'missing',   label: 'Missing',         width: '130px', draggable: true },
   { id: 'maxbuy',    label: 'Max Buy (ea) ↗',  width: '115px', draggable: true },
   { id: 'totalbuy',  label: 'Total Buy ↗',    width: '105px', draggable: true },
   { id: '_del',      label: '',                width: '36px',  draggable: false },
@@ -1081,7 +1087,16 @@ function renderItems() {
             oninput="updateItem(${item.id},'${colId}',Math.min(${maxAllowed},Math.max(0,parseFloat(this.value)||0)));this.value=Math.min(${maxAllowed},Math.max(0,parseFloat(this.value)||0))">
           <span style="font-family:var(--mono);font-size:11px;color:${color};">%</span>
         </div>`;
-      } else if (colId === '_del') {
+      } else if (colId === 'missing') {
+        const m = item.missing || [];
+        td.innerHTML = `<div style="display:flex;flex-direction:column;gap:3px;padding:2px 0;">
+          ${[['drive','💾','Drive'],['ram','🔧','RAM'],['adapter','🔌','Adapter']].map(([key,icon,label]) => `
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-family:var(--mono);font-size:11px;color:${m.includes(key)?'var(--danger)':'var(--text-muted)'};">
+              <input type="checkbox" ${m.includes(key)?'checked':''} style="accent-color:var(--danger);width:12px;height:12px;"
+                onchange="updateItem(${item.id},'missing','${key}')">
+              ${icon} ${label}
+            </label>`).join('')}
+        </div>`;
         td.innerHTML = `<div style="display:flex;align-items:center;gap:4px;">
           <span id="gradewarning-${item.id}" style="display:none;font-family:var(--mono);font-size:9px;font-weight:700;color:var(--danger);background:var(--danger-dim);border:1px solid var(--danger);border-radius:3px;padding:2px 4px;white-space:nowrap;" title="C+D+F exceeds 100%">!&gt;100%</span>
           <button class="del-btn" onclick="removeItem(${item.id})">×</button>
@@ -1108,12 +1123,18 @@ function recalc() {
   const deductRateD  = getNum('deductD')  / 100;
   const deductRateF  = getNum('deductF')  / 100;
 
+  // Missing component deductions (flat $ per unit)
+  const deductDrive   = getNum('deductDrive');
+  const deductRAM     = getNum('deductRAM');
+  const deductAdapter = getNum('deductAdapter');
+
   // Total units for splitting shipping cost
   const totalUnits = items.reduce((s, i) => s + Math.max(0, i.qty || 0), 0);
 
   let totalRevenue = 0;
   let totalMaxBuyCost = 0;
   let totalGradeDeduct = 0;
+  let totalMissingDeduct = 0;
   let totalProcessing = 0;
   let totalPlatformFee = 0;
 
@@ -1146,19 +1167,27 @@ function recalc() {
     const maxBuyPerUnitF  = salePrice * (1 - deductRateF)  * (1 - targetMargin);
 
     // Blended max buy per unit across all grade portions
-    const maxBuyCostEach = (
+    const maxBuyCostEachGrade = (
       effectiveABPct * maxBuyPerUnitAB +
       cPct           * maxBuyPerUnitC  +
       dPct           * maxBuyPerUnitD  +
       fPct           * maxBuyPerUnitF
     );
 
+    // Missing component deductions — flat $ per unit, applied on top of grade deductions
+    const missing = item.missing || [];
+    const missingDeductPerUnit = (missing.includes('drive')   ? deductDrive   : 0)
+                               + (missing.includes('ram')     ? deductRAM     : 0)
+                               + (missing.includes('adapter') ? deductAdapter : 0);
+
+    const maxBuyCostEach  = Math.max(0, maxBuyCostEachGrade - missingDeductPerUnit);
     const maxBuyCostTotal        = maxBuyCostEach * qty;
     const maxBuyCostTotalClamped = Math.max(0, maxBuyCostTotal);
 
-    // Grade deduction = reduction vs all-A/B max buy
+    // Grade deduction = reduction vs all-A/B max buy (before missing)
     const fullMaxBuy     = salePrice * (1 - targetMargin) * qty;
-    const gradeDeductAmt = Math.max(0, fullMaxBuy - maxBuyCostTotalClamped);
+    const gradeDeductAmt = Math.max(0, fullMaxBuy - (maxBuyCostEachGrade * qty));
+    const missingDeductAmt = missingDeductPerUnit * qty;
 
     const netRevenue = grossRevenue;
 
@@ -1209,20 +1238,21 @@ function recalc() {
     totalRevenue      += grossRevenue;
     totalMaxBuyCost   += maxBuyCostTotalClamped;
     totalGradeDeduct  += gradeDeductAmt;
+    totalMissingDeduct += missingDeductAmt;
     totalProcessing   += processingCost * qty;
     totalPlatformFee  += netRevenue * platformFee;
 
-    return { item, qty, grossRevenue, netRevenue, gradeDeductAmt, gradeCPct: cPct, gradeDPct: dPct, gradeFPct: fPct, effectiveABPct, buyCostTotal: maxBuyCostTotalClamped, maxBuyCostEach };
+    return { item, qty, grossRevenue, netRevenue, gradeDeductAmt, missingDeductAmt, gradeCPct: cPct, gradeDPct: dPct, gradeFPct: fPct, effectiveABPct, buyCostTotal: maxBuyCostTotalClamped, maxBuyCostEach };
   });
 
   const totalGrossRevenue = totalRevenue;
-  const totalNetRevenue   = totalGrossRevenue; // sell price unaffected by grade deductions
+  const totalNetRevenue   = totalGrossRevenue;
   const totalOperating    = totalProcessing + shippingCost + totalPlatformFee;
-  const netProfit  = totalNetRevenue - totalMaxBuyCost - totalGradeDeduct - totalOperating;
+  const netProfit  = totalNetRevenue - totalMaxBuyCost - totalGradeDeduct - totalMissingDeduct - totalOperating;
   const actualMargin = totalNetRevenue > 0 ? netProfit / totalNetRevenue : 0;
 
   renderResults({ netProfit, actualMargin, targetMargin, totalRevenue: totalGrossRevenue, totalNetRevenue,
-    totalBuyCost: totalMaxBuyCost, totalGradeDeduct, totalProcessing,
+    totalBuyCost: totalMaxBuyCost, totalGradeDeduct, totalMissingDeduct, totalProcessing,
     shippingCost, totalPlatformFee, itemResults, totalUnits });
 }
 
@@ -1333,6 +1363,7 @@ function renderResults(d) {
   const breakdown = [
     { label: 'Gross Sale Revenue',                                                        val: d.totalRevenue,          cls: 'pos' },
     { label: 'Less: Grade Deductions',     val: -d.totalGradeDeduct,    cls: 'neg' },
+    { label: 'Less: Missing Component Deductions', val: -d.totalMissingDeduct, cls: 'neg' },
     { label: '= Net Sale Revenue',                                                        val: d.totalNetRevenue,       cls: 'pos', bold: false, dim: true },
     { label: 'Less: Acquisition Cost',                                                    val: -d.totalBuyCost,         cls: 'neg' },
     { label: 'Less: Operating Costs',                                                     val: -(d.totalProcessing + d.shippingCost + d.totalPlatformFee), cls: 'neg' },
