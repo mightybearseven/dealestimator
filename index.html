@@ -658,6 +658,41 @@
     color: var(--text-muted);
   }
 
+  /* Missing multi-select dropdown */
+  .missing-dropdown { position: relative; width: 100%; }
+  .missing-trigger {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    min-height: 30px; padding: 4px 8px; cursor: pointer;
+    background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: 4px; font-family: var(--mono); font-size: 11px;
+    transition: border-color 0.15s; user-select: none;
+  }
+  .missing-trigger:hover { border-color: var(--accent); }
+  .missing-trigger.open { border-color: var(--accent); }
+  .missing-pill {
+    background: var(--danger-dim); border: 1px solid var(--danger);
+    color: var(--danger); border-radius: 3px; padding: 1px 5px;
+    font-size: 10px; font-weight: 600; white-space: nowrap;
+  }
+  .missing-placeholder { color: var(--text-muted); font-size: 11px; }
+  .missing-caret { margin-left: auto; color: var(--text-muted); font-size: 10px; flex-shrink: 0; }
+  .missing-menu {
+    display: none; position: absolute; top: calc(100% + 3px); left: 0;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    z-index: 200; min-width: 150px; padding: 4px;
+  }
+  .missing-menu.open { display: block; }
+  .missing-option {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: 4px; cursor: pointer;
+    font-family: var(--mono); font-size: 12px; color: var(--text-dim);
+    transition: background 0.1s;
+  }
+  .missing-option:hover { background: var(--surface2); }
+  .missing-option.selected { color: var(--danger); }
+  .missing-option input[type=checkbox] { accent-color: var(--danger); width: 13px; height: 13px; }
+
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
@@ -810,6 +845,16 @@
 
     <div id="resultsContent" style="display:none; display:flex; flex-direction:column; gap:16px;">
 
+      <!-- Deal Summary Copy Card -->
+      <div class="result-block" id="dealSummaryBlock">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="result-label" style="margin:0;">Deal Summary</div>
+          <button id="copyDealBtn" class="btn-sm" onclick="copyDealSummary()">⎘ Copy</button>
+        </div>
+        <div id="dealSummaryRows"></div>
+        <textarea id="dealSummaryText" style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;" readonly></textarea>
+      </div>
+
       <!-- Net Profit -->
       <div class="result-block" id="profitBlock">
         <div class="result-label">Estimated Net Profit</div>
@@ -871,11 +916,50 @@
 <script>
 // ── Mode toggle ────────────────────────────────────────────────────────────
 let currentMode = 'asis';
+const GRADE_COLS = ['gradeC', 'gradeD', 'gradeF', 'missing'];
+
 function setMode(mode) {
   currentMode = mode;
   document.getElementById('modeAsIs').classList.toggle('active', mode === 'asis');
   document.getElementById('modeSortSettle').classList.toggle('active', mode === 'sortsettle');
+
+  if (mode === 'sortsettle') {
+    // Remove grade/missing columns, preserving user's custom order for the rest
+    columnOrder = columnOrder.filter(c => !GRADE_COLS.includes(c));
+  } else {
+    // Restore grade/missing columns — insert them back before maxbuy if not already present
+    GRADE_COLS.forEach(col => {
+      if (!columnOrder.includes(col)) {
+        const maxbuyIdx = columnOrder.indexOf('maxbuy');
+        columnOrder.splice(maxbuyIdx, 0, col);
+      }
+    });
+  }
+
+  renderHeader();
+  renderItems();
+  recalc();
 }
+
+// ── Missing dropdown ───────────────────────────────────────────────────────
+function toggleMissing(itemId) {
+  const menu = document.getElementById(`missingmenu-${itemId}`);
+  const trigger = document.getElementById(`missingtrigger-${itemId}`);
+  const isOpen = menu.classList.contains('open');
+  // Close all other open menus
+  document.querySelectorAll('.missing-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.missing-trigger.open').forEach(t => t.classList.remove('open'));
+  if (!isOpen) {
+    menu.classList.add('open');
+    trigger.classList.add('open');
+  }
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.missing-dropdown')) {
+    document.querySelectorAll('.missing-menu.open').forEach(m => m.classList.remove('open'));
+    document.querySelectorAll('.missing-trigger.open').forEach(t => t.classList.remove('open'));
+  }
+});
 
 // ── State ──────────────────────────────────────────────────────────────────
 let items = [];
@@ -967,7 +1051,7 @@ const COLUMNS = [
   { id: 'gradeC',    label: 'Grade C %',       width: '80px',  draggable: true },
   { id: 'gradeD',    label: 'Grade D %',       width: '80px',  draggable: true },
   { id: 'gradeF',    label: 'Grade F %',       width: '80px',  draggable: true },
-  { id: 'missing',   label: 'Missing',         width: '130px', draggable: true },
+  { id: 'missing',   label: 'Missing',         width: '160px', draggable: true },
   { id: 'maxbuy',    label: 'Max Buy (ea) ↗',  width: '115px', draggable: true },
   { id: 'totalbuy',  label: 'Total Buy ↗',    width: '105px', draggable: true },
   { id: '_del',      label: '',                width: '36px',  draggable: false },
@@ -1089,14 +1173,22 @@ function renderItems() {
         </div>`;
       } else if (colId === 'missing') {
         const m = item.missing || [];
-        td.innerHTML = `<div style="display:flex;flex-direction:column;gap:3px;padding:2px 0;">
-          ${[['drive','💾','Drive'],['ram','🔧','RAM'],['adapter','🔌','Adapter']].map(([key,icon,label]) => `
-            <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-family:var(--mono);font-size:11px;color:${m.includes(key)?'var(--danger)':'var(--text-muted)'};">
-              <input type="checkbox" ${m.includes(key)?'checked':''} style="accent-color:var(--danger);width:12px;height:12px;"
-                onchange="updateItem(${item.id},'missing','${key}')">
-              ${icon} ${label}
-            </label>`).join('')}
+        const opts = [['drive','💾 Drive'],['ram','🔧 RAM'],['adapter','🔌 Adapter']];
+        const pills = opts.filter(([k]) => m.includes(k)).map(([,l]) => `<span class="missing-pill">${l}</span>`).join('');
+        td.innerHTML = `<div class="missing-dropdown" onclick="event.stopPropagation()">
+          <div class="missing-trigger" id="missingtrigger-${item.id}" onclick="toggleMissing(${item.id})">
+            ${pills || '<span class="missing-placeholder">None</span>'}
+            <span class="missing-caret">▾</span>
+          </div>
+          <div class="missing-menu" id="missingmenu-${item.id}">
+            ${opts.map(([key, label]) => `
+              <div class="missing-option ${m.includes(key) ? 'selected' : ''}" onclick="updateItem(${item.id},'missing','${key}');renderItems();recalc()">
+                <input type="checkbox" ${m.includes(key) ? 'checked' : ''} onclick="event.stopPropagation()" onchange="updateItem(${item.id},'missing','${key}');renderItems();recalc()" style="pointer-events:none;">
+                ${label}
+              </div>`).join('')}
+          </div>
         </div>`;
+      } else if (colId === '_del') {
         td.innerHTML = `<div style="display:flex;align-items:center;gap:4px;">
           <span id="gradewarning-${item.id}" style="display:none;font-family:var(--mono);font-size:9px;font-weight:700;color:var(--danger);background:var(--danger-dim);border:1px solid var(--danger);border-radius:3px;padding:2px 4px;white-space:nowrap;" title="C+D+F exceeds 100%">!&gt;100%</span>
           <button class="del-btn" onclick="removeItem(${item.id})">×</button>
@@ -1144,11 +1236,12 @@ function recalc() {
     const grossRevenue = salePrice * qty;
 
     // Grade mix % for this line — C, D, F entered; remainder is always A/B
-    const gradeCPct = Math.min(100, Math.max(0, item.gradeC || 0)) / 100;
-    const gradeDPct = Math.min(100, Math.max(0, item.gradeD || 0)) / 100;
-    const gradeFPct = Math.min(100, Math.max(0, item.gradeF || 0)) / 100;
+    // In Sort & Settle mode, all units are treated as A/B (no deductions)
+    const isSortSettle = currentMode === 'sortsettle';
+    const gradeCPct = isSortSettle ? 0 : Math.min(100, Math.max(0, item.gradeC || 0)) / 100;
+    const gradeDPct = isSortSettle ? 0 : Math.min(100, Math.max(0, item.gradeD || 0)) / 100;
+    const gradeFPct = isSortSettle ? 0 : Math.min(100, Math.max(0, item.gradeF || 0)) / 100;
     // Cap total at 100% just in case
-    const gradeCDFTotal = Math.min(1, gradeCPct + gradeDPct + gradeFPct);
     const scale  = (gradeCPct + gradeDPct + gradeFPct) > 1 ? 1 / (gradeCPct + gradeDPct + gradeFPct) : 1;
     const cPct   = gradeCPct * scale;
     const dPct   = gradeDPct * scale;
@@ -1157,36 +1250,38 @@ function recalc() {
 
     // Show/hide over-100% warning
     const gradeWarn = document.getElementById(`gradewarning-${item.id}`);
-    if (gradeWarn) gradeWarn.style.display = (gradeCPct + gradeDPct + gradeFPct) > 1 ? 'inline-block' : 'none';
+    if (gradeWarn) gradeWarn.style.display = (!isSortSettle && (gradeCPct + gradeDPct + gradeFPct) > 1) ? 'inline-block' : 'none';
 
-    // Max buy per unit = salePrice × (1 - deductRate) × (1 - targetMargin)
-    // A/B has 0% deduction (baseline grade)
-    const maxBuyPerUnitAB = salePrice * (1 - targetMargin);
-    const maxBuyPerUnitC  = salePrice * (1 - deductRateC)  * (1 - targetMargin);
-    const maxBuyPerUnitD  = salePrice * (1 - deductRateD)  * (1 - targetMargin);
-    const maxBuyPerUnitF  = salePrice * (1 - deductRateF)  * (1 - targetMargin);
+    // Step 1: Effective price per unit after grade deduction (% of sale price)
+    // A/B = no deduction, baseline
+    const effectivePriceAB = salePrice;
+    const effectivePriceC  = salePrice * (1 - deductRateC);
+    const effectivePriceD  = salePrice * (1 - deductRateD);
+    const effectivePriceF  = salePrice * (1 - deductRateF);
 
-    // Blended max buy per unit across all grade portions
-    const maxBuyCostEachGrade = (
-      effectiveABPct * maxBuyPerUnitAB +
-      cPct           * maxBuyPerUnitC  +
-      dPct           * maxBuyPerUnitD  +
-      fPct           * maxBuyPerUnitF
+    // Blended effective price per unit across all grade portions
+    const blendedEffectivePrice = (
+      effectiveABPct * effectivePriceAB +
+      cPct           * effectivePriceC  +
+      dPct           * effectivePriceD  +
+      fPct           * effectivePriceF
     );
 
-    // Missing component deductions — flat $ per unit, applied on top of grade deductions
-    const missing = item.missing || [];
+    // Step 2: Missing component deductions — flat $ off effective price per unit
+    const missing = isSortSettle ? [] : (item.missing || []);
     const missingDeductPerUnit = (missing.includes('drive')   ? deductDrive   : 0)
                                + (missing.includes('ram')     ? deductRAM     : 0)
                                + (missing.includes('adapter') ? deductAdapter : 0);
 
-    const maxBuyCostEach  = Math.max(0, maxBuyCostEachGrade - missingDeductPerUnit);
+    const netPricePerUnit = Math.max(0, blendedEffectivePrice - missingDeductPerUnit);
+
+    // Step 3: Apply target margin to the net price after all deductions
+    const maxBuyCostEach         = netPricePerUnit * (1 - targetMargin);
     const maxBuyCostTotal        = maxBuyCostEach * qty;
     const maxBuyCostTotalClamped = Math.max(0, maxBuyCostTotal);
 
-    // Grade deduction = reduction vs all-A/B max buy (before missing)
-    const fullMaxBuy     = salePrice * (1 - targetMargin) * qty;
-    const gradeDeductAmt = Math.max(0, fullMaxBuy - (maxBuyCostEachGrade * qty));
+    // Track deduction amounts for reporting
+    const gradeDeductAmt   = Math.max(0, (salePrice - blendedEffectivePrice) * qty);
     const missingDeductAmt = missingDeductPerUnit * qty;
 
     const netRevenue = grossRevenue;
@@ -1286,6 +1381,59 @@ function renderResults(d) {
   if (footQty)     footQty.textContent     = d.totalUnits + ' units';
   if (footRevenue) footRevenue.textContent = fmt(d.totalRevenue);
   if (footMaxBuy)  footMaxBuy.textContent  = fmt(d.totalBuyCost);
+
+  // Deal Summary copy card
+  const summaryRows = document.getElementById('dealSummaryRows');
+  const summaryText = document.getElementById('dealSummaryText');
+  if (summaryRows) {
+    const mode = currentMode === 'sortsettle' ? 'Sort & Settle' : 'As-Is';
+    const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    const row = (label, val, valCls='', bold=false) =>
+      `<div class="breakdown-row" ${bold ? 'style="font-weight:700;border-top:1px solid var(--border2);margin-top:4px;padding-top:8px;"' : ''}>
+        <span class="bkey">${label}</span>
+        <span class="bval ${valCls}">${val}</span>
+      </div>`;
+
+    let html = '';
+    let textLines = [`Deal Summary — ${mode} | ${date}`, ''];
+
+    // Line items
+    d.itemResults.forEach(ir => {
+      const pn = ir.item.pn || `Item #${ir.item.id}`;
+      html += row(`${pn} ×${ir.qty}`, `${fmt(ir.grossRevenue)} → ${fmt(ir.buyCostTotal)}`, 'pos');
+      textLines.push(`${pn}  ×${ir.qty}  Sell: ${fmt(ir.grossRevenue)}  Max Buy: ${fmt(ir.buyCostTotal)}`);
+    });
+
+    // Totals
+    textLines.push('');
+    html += row(`Total (${d.totalUnits} units)`, fmt(d.totalRevenue), 'pos', true);
+    html += row('Total Max Buy', fmt(d.totalBuyCost), 'warn');
+    textLines.push(`Units: ${d.totalUnits}  |  Total Sell: ${fmt(d.totalRevenue)}  |  Total Buy: ${fmt(d.totalBuyCost)}`);
+
+    // Deductions
+    if (d.totalGradeDeduct > 0) {
+      html += row('Grade Deductions', fmt(-d.totalGradeDeduct), 'neg');
+      textLines.push(`Grade Deductions: ${fmt(d.totalGradeDeduct)}`);
+    }
+    if (d.totalMissingDeduct > 0) {
+      html += row('Missing Deductions', fmt(-d.totalMissingDeduct), 'neg');
+      textLines.push(`Missing Deductions: ${fmt(d.totalMissingDeduct)}`);
+    }
+
+    // Operating costs as one line
+    const totalOp = d.totalProcessing + d.shippingCost + d.totalPlatformFee;
+    html += row('Operating Costs', fmt(-totalOp), 'neg');
+    textLines.push(`Operating Costs: ${fmt(totalOp)}`);
+
+    // Bottom line
+    html += row(`Net Profit (${fmtPct(d.actualMargin)} margin)`, fmt(d.netProfit), d.netProfit >= 0 ? 'pos' : 'neg', true);
+    textLines.push('');
+    textLines.push(`Net Profit: ${fmt(d.netProfit)}  |  Margin: ${fmtPct(d.actualMargin)}`);
+
+    summaryRows.innerHTML = html;
+    if (summaryText) summaryText.value = textLines.join('\n');
+  }
 
   // Net Profit block
   const profitBlock = document.getElementById('profitBlock');
@@ -1401,6 +1549,23 @@ function renderResults(d) {
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────
+function copyDealSummary() {
+  const el = document.getElementById('dealSummaryText');
+  if (!el) return;
+  navigator.clipboard.writeText(el.value).then(() => {
+    const btn = document.getElementById('copyDealBtn');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    btn.style.color = 'var(--accent)';
+    btn.style.borderColor = 'var(--accent)';
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.style.color = 'var(--text-muted)';
+      btn.style.borderColor = 'var(--border2)';
+    }, 2000);
+  });
+}
+
 function clearAll() {
   if (items.length && !confirm('Clear all line items?')) return;
   items = [];
