@@ -727,7 +727,10 @@
         <tbody id="itemsBody"></tbody>
         <tfoot id="itemsFoot" style="display:none;"><tr></tr></tfoot>
       </table>
-      <button class="add-item-btn" onclick="addItem()">+ Add Line Item</button>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="add-item-btn" style="margin-top:0;" onclick="addItem()">+ Add Line Item</button>
+        <button class="add-item-btn" style="margin-top:0;flex:0 0 auto;width:auto;padding:8px 16px;" onclick="mergeLikeLines()">⊕ Merge Like Lines</button>
+      </div>
       <div id="pasteZone" class="paste-zone" 
            ondragover="event.preventDefault();this.classList.add('drag-over')"
            ondragleave="this.classList.remove('drag-over')"
@@ -1398,11 +1401,24 @@ function renderResults(d) {
     let html = '';
     let textLines = [`Deal Summary — ${mode} | ${date}`, ''];
 
-    // Line items
+    // Condense items with matching part number + sale price into single rows
+    const condensed = [];
     d.itemResults.forEach(ir => {
       const pn = ir.item.pn || `Item #${ir.item.id}`;
-      html += row(`${pn} ×${ir.qty}`, `${fmt(ir.grossRevenue)} → ${fmt(ir.buyCostTotal)}`, 'pos');
-      textLines.push(`${pn}  ×${ir.qty}  Sell: ${fmt(ir.grossRevenue)}  Max Buy: ${fmt(ir.buyCostTotal)}`);
+      const key = `${pn}||${ir.item.salePrice}`;
+      const existing = condensed.find(c => c.key === key);
+      if (existing) {
+        existing.qty         += ir.qty;
+        existing.grossRevenue += ir.grossRevenue;
+        existing.buyCostTotal += ir.buyCostTotal;
+      } else {
+        condensed.push({ key, pn, qty: ir.qty, grossRevenue: ir.grossRevenue, buyCostTotal: ir.buyCostTotal });
+      }
+    });
+
+    condensed.forEach(c => {
+      html += row(`${c.pn} ×${c.qty}`, `${fmt(c.grossRevenue)} → ${fmt(c.buyCostTotal)}`, 'pos');
+      textLines.push(`${c.pn}  ×${c.qty}  Sell: ${fmt(c.grossRevenue)}  Max Buy: ${fmt(c.buyCostTotal)}`);
     });
 
     // Totals
@@ -1564,6 +1580,64 @@ function copyDealSummary() {
       btn.style.borderColor = 'var(--border2)';
     }, 2000);
   });
+}
+
+function mergeLikeLines() {
+  if (items.length < 2) return;
+
+  const groups = [];
+
+  items.forEach(item => {
+    const key = `${(item.pn || '').trim().toLowerCase()}||${item.salePrice}`;
+    const existing = groups.find(g => g.key === key);
+    if (existing) {
+      existing.members.push(item);
+    } else {
+      groups.push({ key, members: [item] });
+    }
+  });
+
+  const merged = groups.map(g => {
+    if (g.members.length === 1) return g.members[0];
+
+    const totalQty = g.members.reduce((s, m) => s + Math.max(0, m.qty || 0), 0);
+
+    // Weighted average of grade percentages by qty
+    const wavg = (field) => totalQty > 0
+      ? g.members.reduce((s, m) => s + (m[field] || 0) * Math.max(0, m.qty || 0), 0) / totalQty
+      : 0;
+
+    // Union of missing components across all merged rows
+    const missingUnion = [...new Set(g.members.flatMap(m => m.missing || []))];
+
+    const base = g.members[0];
+    return {
+      id: base.id,
+      pn: base.pn,
+      salePrice: base.salePrice,
+      qty: totalQty,
+      buyCost: 0,
+      gradeC: Math.round(wavg('gradeC')),
+      gradeD: Math.round(wavg('gradeD')),
+      gradeF: Math.round(wavg('gradeF')),
+      missing: missingUnion,
+    };
+  });
+
+  const mergedCount = items.length - merged.length;
+  if (mergedCount === 0) {
+    showToast('No matching lines to merge', true);
+    return;
+  }
+
+  // Reassign IDs cleanly
+  nextId = 1;
+  items = merged.map(m => ({ ...m, id: nextId++ }));
+
+  renderHeader();
+  renderItems();
+  recalc();
+  showToast(`✓ Merged ${mergedCount} line${mergedCount !== 1 ? 's' : ''}`);
 }
 
 function clearAll() {
