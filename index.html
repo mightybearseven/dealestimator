@@ -741,7 +741,7 @@
         <div class="paste-zone-sub">Part Number · Qty · Sale Price — click here then Ctrl+V</div>
         <textarea id="pasteInput" class="paste-textarea" 
           placeholder="Paste Excel rows here (Part Number&#9;Qty&#9;Sale Price)..."
-          onpaste="setTimeout(()=>{handlePaste(this.value);this.value=''},0)"
+          onpaste="const text=event.clipboardData.getData('text');event.preventDefault();if(text){handlePaste(text);this.value='';}"
           onkeydown="if(event.key==='Escape')this.blur()"></textarea>
       </div>
     </div>
